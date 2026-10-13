@@ -16,7 +16,7 @@ const PAYLOADS: Record<string, string> = {
 		"<!--<script></script><script>window.ran.push('commentThenClose')</script>",
 	cdata: "]]></script><script>window.ran.push('cdata')</script>",
 	attribute: "<img src=x onerror=\"window.ran.push('attribute')\">",
-	separators: "line para end",
+	separators: "line\u2028para\u2029end",
 };
 
 const data = {
