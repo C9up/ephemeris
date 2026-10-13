@@ -63,6 +63,27 @@ Every helper bounds what it is given: no text over 10,000 characters
 every URL (`url`, `sameAs`, `logo`, `image`, `item`…) absolute http(s) —
 `javascript:` and `data:` are refused (`E_EPHEMERIS_INVALID_URL`).
 
+### Content and commerce
+
+`article`, `product` (a product reviewed or compared), `merchantListing` (a
+product the page sells), `review`, `aggregateRating`, `event`, `jobPosting`,
+`recipe`, `video`, `softwareApplication` and `course` check Google's rules for
+each rich result, nested ones included — a product's offers (`Offer` or
+`AggregateOffer`), reviews and rating; a merchant listing refuses an
+`AggregateOffer`; a fully remote job needs the countries applicants may work
+from.
+
+Prices, currencies and dates are held to the form Google reads, refused
+rather than converted: a price is a number or decimal digits with a `.` —
+`"CHF 12"`, `"1,234.50"` or `-1` is `E_EPHEMERIS_INVALID_PRICE`; a currency is a
+three-letter ISO 4217 code (`E_EPHEMERIS_INVALID_CURRENCY`); a date is ISO
+8601 and real (`E_EPHEMERIS_INVALID_DATE`), and a date-time without a time
+zone is a warning. A `Date` object is written in UTC, the same on every
+machine.
+
+Not covered: FAQ, which Google no longer shows (May 2026), and How-to; the
+other types of Google's search gallery are not covered yet.
+
 ## The graph
 
 ```ts

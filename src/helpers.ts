@@ -6,11 +6,11 @@
  * Each returns the node it was given, ready for a `SchemaGraph` slot.
  */
 
+import { build } from "./build.js";
 import { isPlainObject } from "./data.js";
 import { EphemerisError } from "./errors.js";
 import {
 	type CheckOptions,
-	check,
 	RequirementError,
 	type Rule,
 } from "./requirements.js";
@@ -26,81 +26,8 @@ import type {
 
 const SEARCH_CENTRAL = "https://developers.google.com/search/docs/appearance";
 
-/** Longer than any name or description a page shows; a bound, not a style. */
-export const MAX_TEXT_LENGTH = 10_000;
 /** More crumbs than any trail a person follows. */
 export const MAX_BREADCRUMB_ITEMS = 32;
-
-/** Properties whose string value is a URL a browser or crawler will follow. */
-const URL_KEYS = new Set([
-	"url",
-	"sameAs",
-	"logo",
-	"image",
-	"item",
-	"contentUrl",
-	"thumbnailUrl",
-]);
-
-function checkUrl(value: string, path: string): void {
-	let url: URL;
-	try {
-		url = new URL(value);
-	} catch {
-		throw new EphemerisError(
-			"E_EPHEMERIS_INVALID_URL",
-			`${path} must be an absolute URL, not "${value.slice(0, 200)}"`,
-		);
-	}
-	if (url.protocol !== "https:" && url.protocol !== "http:") {
-		throw new EphemerisError(
-			"E_EPHEMERIS_INVALID_URL",
-			`${path} must be an http(s) URL, not a ${url.protocol} one`,
-		);
-	}
-}
-
-/** Every string bounded, every URL absolute http(s), at any depth. */
-function bound(value: unknown, path: string, key: string): void {
-	if (typeof value === "string") {
-		if (value.length > MAX_TEXT_LENGTH) {
-			throw new EphemerisError(
-				"E_EPHEMERIS_TOO_LONG",
-				`${path} is ${value.length} characters, more than ${MAX_TEXT_LENGTH}`,
-			);
-		}
-		if (URL_KEYS.has(key)) checkUrl(value, path);
-		return;
-	}
-	if (Array.isArray(value)) {
-		value.forEach((item, index) => {
-			bound(item, `${path}[${index}]`, key);
-		});
-		return;
-	}
-	if (isPlainObject(value)) {
-		for (const [name, item] of Object.entries(value)) {
-			bound(item, `${path}.${name}`, name);
-		}
-	}
-}
-
-function build<T extends object>(
-	node: T,
-	what: string,
-	rule: Rule | undefined,
-	options: CheckOptions,
-): T {
-	if (!isPlainObject(node)) {
-		throw new EphemerisError(
-			"E_EPHEMERIS_INVALID_NODE",
-			`${what} must be a plain object`,
-		);
-	}
-	bound(node, what, "");
-	if (rule) check(rule, node, options);
-	return node;
-}
 
 /** Organization — no property is required; all of these are recommended. */
 export const ORGANIZATION: Rule = {
