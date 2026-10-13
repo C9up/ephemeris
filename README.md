@@ -36,6 +36,37 @@ property, a wrong `@type` or a value outside a property's range does not
 compile. The types are generated from the release file in `vocabulary/` —
 `pnpm generate:schema` — and compile to no code.
 
+## The graph
+
+```ts
+import { jsonLdScriptTag, SchemaGraph } from '@c9up/ephemeris'
+
+const graph = new SchemaGraph({ url: 'https://shop.example/anvils/executive' })
+  .identity({ '@type': 'Organization', name: 'ACME' })   // https://shop.example/#identity
+  .website({ '@type': 'WebSite', name: 'ACME shop' })    // https://shop.example/#website
+  .webPage({ '@type': 'ItemPage', name: 'Executive Anvil' })
+  .breadcrumb({ '@type': 'BreadcrumbList', itemListElement: [/* … */] })
+  .mainEntity({ '@type': 'Product', name: 'Executive Anvil' })
+  .add({ '@type': 'Person', '@id': '#author', name: 'Ada' })
+
+jsonLdScriptTag(graph.toJsonLd(), { nonce })
+```
+
+Each root node has its slot and a stable `@id` — `#identity` and `#website`
+on the site, `#webpage`, `#breadcrumb` and `#main-entity` on the page; any
+other node keeps its own `@id` or gets `#/schema/<type>/<n>`. The website is
+published by the identity, the page is part of the website and has the
+breadcrumb and the main entity, which has the page — each link only when both
+nodes are there, and never over a value the caller set.
+
+A layout and a page may describe the same node: the declarations merge, the
+types are united, and what the later one sets wins. Nothing is invented — no
+default availability, no shortened headline — and empty values (`undefined`,
+`null`, `""`, `[]`, `{}`) are dropped. Keys are ordered, so a page gives the
+same bytes on every render. `__proto__`, `constructor` and `prototype` are
+refused as keys (`E_EPHEMERIS_UNSAFE_KEY`), and the URLs must be absolute
+http(s) (`E_EPHEMERIS_INVALID_URL`).
+
 ## The script tag
 
 ```ts
