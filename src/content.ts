@@ -10,7 +10,8 @@
  */
 
 import { build, checkNested } from "./build.js";
-import type { Data } from "./data.js";
+import { type Data, isPlainObject } from "./data.js";
+import { checkPolicies, paywall, SPEAKABLE } from "./gallery.js";
 import type { CheckOptions, Reporter, Rule } from "./requirements.js";
 import type {
 	AggregateRating,
@@ -57,6 +58,7 @@ export const ARTICLE: Rule = {
 	type: "Article",
 	source: `${PAGES}/article`,
 	read: "2026-09-08",
+	checks: [paywall],
 	recommended: [
 		"headline",
 		"image",
@@ -381,7 +383,9 @@ export function article<T extends NodeOf<Article>>(
 	node: T,
 	options: CheckOptions = {},
 ): T {
-	return build(node, "article", ARTICLE, options);
+	const built = build(node, "article", ARTICLE, options);
+	checkNested(built, "speakable", () => SPEAKABLE, options);
+	return built;
 }
 
 /**
@@ -410,6 +414,10 @@ export function merchantListing<T extends NodeOf<Product>>(
 ): T {
 	const built = build(node, "merchantListing", MERCHANT_LISTING, options);
 	checkNested(built, "offers", () => MERCHANT_OFFER, options);
+	const offers: unknown[] = [Reflect.get(built, "offers")].flat();
+	for (const offer of offers.filter(isPlainObject)) {
+		checkPolicies(offer, options);
+	}
 	ratings(built, options);
 	return built;
 }

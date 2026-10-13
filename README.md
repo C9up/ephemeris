@@ -79,8 +79,13 @@ three-letter ISO 4217 code (`E_EPHEMERIS_INVALID_CURRENCY`); a date is ISO
 zone is a warning. A `Date` object is written in UTC, the same on every
 machine.
 
-Not covered: FAQ, which Google no longer shows (May 2026), and How-to; the
-other types of Google's search gallery are not covered yet.
+The rest of Google's search gallery is covered too: carousels (`itemList`,
+`movie`), `dataset`, `discussionForumPosting`, `qaPage`, `quiz`,
+`employerAggregateRating`, `imageObject`, `vacationRental`, `productGroup`,
+`mathSolver`, and the return, shipping and loyalty policies — checked also
+where an organization or an offer carries them. Not covered: FAQ and How-to,
+which Google no longer shows; fact checks, whose support Google is phasing
+out; book actions, which come from a feed rather than a page.
 
 ## The graph
 

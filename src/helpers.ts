@@ -6,9 +6,10 @@
  * Each returns the node it was given, ready for a `SchemaGraph` slot.
  */
 
-import { build } from "./build.js";
+import { build, checkNested } from "./build.js";
 import { isPlainObject } from "./data.js";
 import { EphemerisError } from "./errors.js";
+import { checkPolicies, paywall, SPEAKABLE } from "./gallery.js";
 import {
 	type CheckOptions,
 	RequirementError,
@@ -129,6 +130,14 @@ export const LOCAL_BUSINESS: Rule = {
 	],
 };
 
+/** A page: no rich result of its own; content behind a paywall is checked. */
+export const WEB_PAGE: Rule = {
+	type: "WebPage",
+	source: `${SEARCH_CENTRAL}/structured-data/paywalled-content`,
+	read: "2026-09-08",
+	checks: [paywall],
+};
+
 /** WebSite, for the site name: on the home page. */
 export const WEBSITE: Rule = {
 	type: "WebSite",
@@ -171,7 +180,9 @@ export function organization<T extends NodeOf<Organization>>(
 	node: T,
 	options: CheckOptions = {},
 ): T {
-	return build(node, "organization", ORGANIZATION, options);
+	const built = build(node, "organization", ORGANIZATION, options);
+	checkPolicies(built, options);
+	return built;
 }
 
 /** A business with a place customers come to — a shop, a restaurant. */
@@ -179,7 +190,9 @@ export function localBusiness<T extends NodeOf<LocalBusiness>>(
 	node: T,
 	options: CheckOptions = {},
 ): T {
-	return build(node, "localBusiness", LOCAL_BUSINESS, options);
+	const built = build(node, "localBusiness", LOCAL_BUSINESS, options);
+	checkPolicies(built, options);
+	return built;
 }
 
 /** A person. Google has no rich result for a person alone: bounded only. */
@@ -195,9 +208,17 @@ export function website<T extends NodeOf<WebSite>>(
 	return build(node, "website", WEBSITE, options);
 }
 
-/** A page. Google has no rich result for a page as such: bounded only. */
-export function webPage<T extends NodeOf<WebPage>>(node: T): T {
-	return build(node, "webPage", undefined, {});
+/**
+ * A page. Google has no rich result for a page as such; its speakable
+ * sections and paywalled content are checked.
+ */
+export function webPage<T extends NodeOf<WebPage>>(
+	node: T,
+	options: CheckOptions = {},
+): T {
+	const built = build(node, "webPage", WEB_PAGE, options);
+	checkNested(built, "speakable", () => SPEAKABLE, options);
+	return built;
 }
 
 /** A page about one person or organization: a profile. */
