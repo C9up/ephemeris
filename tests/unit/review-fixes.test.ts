@@ -15,7 +15,11 @@ import {
 	stringifyJsonLd,
 	toJsonLd,
 } from "../../src/index.js";
-import type { OrganizationLeaf, PersonLeaf } from "../../src/schema.js";
+import type {
+	CreativeWorkLeaf,
+	OrganizationLeaf,
+	PersonLeaf,
+} from "../../src/schema.js";
 
 /**
  * One test per defect a review of 0.1.0 reproduced: each input once gave a raw
@@ -35,11 +39,17 @@ function refusal(build: () => unknown): EphemerisError {
 const silent = { onWarning: () => {} };
 const URL_ = "https://shop.example/anvils/executive";
 
-/** `{ <key>: { <key>: … } }`, `levels` deep, as a request could send it. */
-function nested(key: string, levels: number) {
-	let value: Record<string, unknown> = { "@type": "Thing", name: "bottom" };
-	for (let i = 0; i < levels; i++) value = { "@type": "Thing", [key]: value };
-	return JSON.parse(JSON.stringify(value));
+/**
+ * Creative works each the subject of the next, `levels` deep — built by a
+ * loop: a JSON round trip of it would overflow the stack before the code
+ * under test ever ran.
+ */
+function nested(levels: number): CreativeWorkLeaf {
+	let value: CreativeWorkLeaf = { "@type": "CreativeWork", name: "bottom" };
+	for (let i = 0; i < levels; i++) {
+		value = { "@type": "CreativeWork", subjectOf: value };
+	}
+	return value;
 }
 
 describe("ephemeris > review fixes > cycles and depth", () => {
@@ -57,7 +67,7 @@ describe("ephemeris > review fixes > cycles and depth", () => {
 	it("refuses data nested 20,000 deep in a helper and in the graph", () => {
 		const deep = {
 			"@type": "Person",
-			subjectOf: nested("subjectOf", 20_000),
+			subjectOf: nested(20_000),
 		} as const;
 		expect(refusal(() => person(deep)).code).toBe("E_EPHEMERIS_TOO_DEEP");
 		expect(refusal(() => new SchemaGraph({ url: URL_ }).add(deep)).code).toBe(
