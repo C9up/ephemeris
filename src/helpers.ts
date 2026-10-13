@@ -256,8 +256,9 @@ export function breadcrumb(
 			` of at least two items, not ${crumbs.length}`,
 		);
 	}
-	crumbs.forEach((crumb, index) => {
-		if (crumb.name.trim() === "") {
+	// A hole in the array (`[, crumb]`) is a missing crumb, not one to skip.
+	Array.from(crumbs).forEach((crumb: Crumb | undefined, index) => {
+		if (crumb === undefined || crumb.name.trim() === "") {
 			throw new RequirementError(
 				type,
 				`itemListElement[${index}].name`,
@@ -276,7 +277,7 @@ export function breadcrumb(
 	return build(
 		{
 			"@type": "BreadcrumbList",
-			itemListElement: crumbs.map((crumb, index) => ({
+			itemListElement: Array.from(crumbs, (crumb, index) => ({
 				"@type": "ListItem",
 				position: index + 1,
 				name: crumb.name,

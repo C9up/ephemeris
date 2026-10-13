@@ -121,10 +121,10 @@ describe("ephemeris > stringifyJsonLd", () => {
 			"E_EPHEMERIS_INVALID_VALUE",
 			/invalid Date/,
 		],
-	])("refuses %s, naming where it is", (_name, data, code, message) => {
+	])("refuses %s, naming where it is", (name, data, code, message) => {
 		const error = refusal(() => stringifyJsonLd(data));
-		expect(error.code).toBe(code);
-		expect(error.message).toMatch(message);
+		expect(error.code, name).toBe(code);
+		expect(error.message, name).toMatch(message);
 	});
 
 	it("leaves out what a toJSON turns into nothing, and refuses a document that is nothing", () => {

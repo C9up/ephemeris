@@ -283,8 +283,8 @@ describe("ephemeris > SchemaGraph refusals", () => {
 		["a relative URL", "/anvils"],
 		["a javascript: URL", "javascript:alert(1)"],
 		["an ftp URL", "ftp://shop.example/"],
-	])("refuses %s as the page", (_name, url) => {
-		expect(refusal(() => new SchemaGraph({ url })).code).toBe(
+	])("refuses %s as the page", (name, url) => {
+		expect(refusal(() => new SchemaGraph({ url })).code, name).toBe(
 			"E_EPHEMERIS_INVALID_URL",
 		);
 	});

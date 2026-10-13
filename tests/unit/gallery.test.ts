@@ -156,7 +156,7 @@ describe("ephemeris > forums and Q&A", () => {
 		).toMatchObject({ type: "Comment", property: "datePublished" });
 	});
 
-	it("stops at the depth any document stops at", () => {
+	it("refuses a thread deeper than any document", () => {
 		let comment: Record<string, unknown> = { "@type": "Comment" };
 		for (let i = 0; i < 70; i++) {
 			comment = {
@@ -167,13 +167,15 @@ describe("ephemeris > forums and Q&A", () => {
 				comment,
 			};
 		}
-		// The innermost comment, past 64 levels, is not reached.
-		expect(() =>
-			discussionForumPosting(
-				{ ...post, comment: JSON.parse(JSON.stringify(comment)) },
-				silent,
-			),
-		).not.toThrow();
+		// Past 64 levels, a thread is refused like any document, not overflowed.
+		expect(
+			refusal(() =>
+				discussionForumPosting(
+					{ ...post, comment: JSON.parse(JSON.stringify(comment)) },
+					silent,
+				),
+			).code,
+		).toBe("E_EPHEMERIS_TOO_DEEP");
 	});
 
 	it("checks a Q&A page's question and its answers", () => {

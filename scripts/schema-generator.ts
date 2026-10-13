@@ -119,8 +119,10 @@ function toJsDoc(term: Term, indent: string, notes: string[]): string {
 		.replace(/\[\[([^\]]+)\]\]/g, "{@link https://schema.org/$1 $1}")
 		.replace(
 			/<a\s+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g,
-			(_match, href: string, label: string) =>
-				`{@link ${href} ${label.replace(/<[^>]+>/g, "").trim()}}`,
+			(...match: string[]) => {
+				const [, href = "", label = ""] = match;
+				return `{@link ${href} ${label.replace(/<[^>]+>/g, "").trim()}}`;
+			},
 		)
 		.replace(/<br\s*\/?>/g, "\n")
 		.replace(/<\/?(p|li|ul|ol)\b[^>]*>/g, "\n")

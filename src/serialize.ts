@@ -14,7 +14,7 @@
  * throws on a cycle or a `bigint`.
  */
 
-import { isPlainObject } from "./data.js";
+import { isPlainObject, MAX_DEPTH } from "./data.js";
 import { EphemerisError } from "./errors.js";
 
 /** A JSON-LD value once normalized: what `JSON.parse` would give back. */
@@ -33,9 +33,6 @@ export interface ScriptTagOptions {
 	 */
 	nonce?: string;
 }
-
-/** Deeper than any real document; a bound for data that was never one. */
-const MAX_DEPTH = 64;
 
 /** Nothing: the property or entry is left out, as JSON leaves `undefined`. */
 const OMIT = Symbol("omit");
@@ -66,6 +63,7 @@ function normalize(
 	value: unknown,
 	path: (string | number)[],
 	ancestors: Set<object>,
+	fromToJSON = false,
 ): JsonLdValue | typeof OMIT {
 	if (value === undefined) return OMIT;
 	if (value === null) return null;
@@ -81,7 +79,7 @@ function normalize(
 		return value;
 	}
 	if (typeof value === "object") {
-		return normalizeObject(value, path, ancestors);
+		return normalizeObject(value, path, ancestors, fromToJSON);
 	}
 	return refuse(
 		"E_EPHEMERIS_INVALID_VALUE",
@@ -94,7 +92,20 @@ function normalizeObject(
 	value: object,
 	path: (string | number)[],
 	ancestors: Set<object>,
+	fromToJSON = false,
 ): JsonLdValue | typeof OMIT {
+	if (value instanceof Date) {
+		if (Number.isNaN(value.getTime())) {
+			refuse("E_EPHEMERIS_INVALID_VALUE", path, "is an invalid Date");
+		}
+		return value.toISOString();
+	}
+	const toJSON: unknown = Reflect.get(value, "toJSON");
+	if (typeof toJSON === "function" && !fromToJSON) {
+		// A value that says how it is written — a Decimal, a Luxon date. Called
+		// once, as JSON calls it: what it gives is written as it is.
+		return normalize(Reflect.apply(toJSON, value, []), path, ancestors, true);
+	}
 	if (ancestors.has(value)) {
 		refuse("E_EPHEMERIS_CYCLE", path, "contains itself");
 	}
@@ -104,12 +115,6 @@ function normalizeObject(
 			path,
 			`is nested deeper than ${MAX_DEPTH} levels`,
 		);
-	}
-	if (value instanceof Date) {
-		if (Number.isNaN(value.getTime())) {
-			refuse("E_EPHEMERIS_INVALID_VALUE", path, "is an invalid Date");
-		}
-		return value.toISOString();
 	}
 	ancestors.add(value);
 	try {
@@ -121,11 +126,6 @@ function normalizeObject(
 			});
 			return items;
 		}
-		const toJSON: unknown = Reflect.get(value, "toJSON");
-		if (typeof toJSON === "function") {
-			// A value that says how it is written — a Decimal, a Luxon date.
-			return normalize(Reflect.apply(toJSON, value, []), path, ancestors);
-		}
 		if (!isPlainObject(value)) {
 			const name = value.constructor?.name ?? "object";
 			refuse(
@@ -136,6 +136,8 @@ function normalizeObject(
 		}
 		const entries: [string, JsonLdValue][] = [];
 		for (const [key, item] of Object.entries(value)) {
+			// The serialization hook is not data: JSON leaves it out.
+			if (key === "toJSON" && typeof item === "function") continue;
 			const normalized = normalize(item, [...path, key], ancestors);
 			if (normalized !== OMIT) entries.push([key, normalized]);
 		}

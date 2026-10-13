@@ -1,3 +1,6 @@
+/** Deeper than any real document; a bound for data that was never one. */
+export const MAX_DEPTH = 64;
+
 /** Structured data as it is handled: plain objects keyed by property. */
 export type Data = Record<string, unknown>;
 

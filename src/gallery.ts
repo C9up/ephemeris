@@ -14,6 +14,7 @@ import { type Data, isPlainObject } from "./data.js";
 import {
 	type CheckOptions,
 	check,
+	isEmpty,
 	type Reporter,
 	type Rule,
 } from "./requirements.js";
@@ -245,13 +246,13 @@ export const MERCHANT_RETURN_POLICY: Rule = {
 		(node, report) => {
 			if (
 				names(node.returnPolicyCategory, "MerchantReturnFiniteReturnWindow") &&
-				node.merchantReturnDays === undefined
+				isEmpty(node.merchantReturnDays)
 			) {
 				report.fail("merchantReturnDays", " for a finite return window");
 			}
 			if (
 				names(node.returnFees, "ReturnShippingFees") &&
-				node.returnShippingFeesAmount === undefined
+				isEmpty(node.returnShippingFeesAmount)
 			) {
 				report.fail(
 					"returnShippingFeesAmount",
@@ -375,13 +376,15 @@ export function paywall(node: Data, report: Reporter): void {
 	}
 }
 
-/** Comments, at any depth of a thread — bounded like any document. */
-function checkComments(node: object, options: CheckOptions, depth = 0): void {
-	if (depth >= 64) return;
+/**
+ * Comments, at any depth of a thread. The depth is bounded before this runs:
+ * `build` refuses data nested deeper than 64 levels.
+ */
+function checkComments(node: object, options: CheckOptions): void {
 	for (const comment of [Reflect.get(node, "comment")].flat()) {
 		if (isPlainObject(comment)) {
 			check(COMMENT, comment, options);
-			checkComments(comment, options, depth + 1);
+			checkComments(comment, options);
 		}
 	}
 }

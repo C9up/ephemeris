@@ -78,10 +78,10 @@ export interface Reporter {
 }
 
 /** A node given only by reference: its properties are described elsewhere. */
-export function isReference(value: unknown): boolean {
-	return (
-		isPlainObject(value) && Object.keys(value).every((key) => key === "@id")
-	);
+export function isReference(value: Data): boolean {
+	// `{}` is not a reference: it names nothing, and would skip every check.
+	const keys = Object.keys(value);
+	return keys.length > 0 && keys.every((key) => key === "@id");
 }
 
 export function isEmpty(value: unknown): boolean {

@@ -12,7 +12,12 @@
 import { build, checkNested } from "./build.js";
 import { type Data, isPlainObject } from "./data.js";
 import { checkPolicies, paywall, SPEAKABLE } from "./gallery.js";
-import type { CheckOptions, Reporter, Rule } from "./requirements.js";
+import {
+	type CheckOptions,
+	isEmpty,
+	type Reporter,
+	type Rule,
+} from "./requirements.js";
 import type {
 	AggregateRating,
 	Article,
@@ -323,7 +328,7 @@ export const RECIPE: Rule = {
 				typeof nutrition === "object" && nutrition !== null
 					? Reflect.get(nutrition, "calories")
 					: undefined;
-			if (calories !== undefined && node.recipeYield === undefined) {
+			if (!isEmpty(calories) && isEmpty(node.recipeYield)) {
 				report.fail("recipeYield", ", which nutrition.calories is counted per");
 			}
 		},

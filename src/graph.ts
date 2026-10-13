@@ -21,7 +21,7 @@
  * sets wins.
  */
 
-import { type Data, isPlainObject } from "./data.js";
+import { type Data, isPlainObject, MAX_DEPTH } from "./data.js";
 import { EphemerisError } from "./errors.js";
 import type {
 	BreadcrumbList,
@@ -86,27 +86,49 @@ function absoluteHttp(value: string, what: string): URL {
 }
 
 /** A value with its empty parts removed: `undefined`, `null`, `""`, `[]`, `{}`. */
-function clean(value: unknown, path: string): unknown {
+function clean(
+	value: unknown,
+	path: string,
+	ancestors: Set<object> = new Set(),
+	depth = 0,
+): unknown {
 	if (value === undefined || value === null || value === "") return undefined;
-	if (Array.isArray(value)) {
-		const items = value
-			.map((item, index) => clean(item, `${path}[${index}]`))
-			.filter((item) => item !== undefined);
-		return items.length === 0 ? undefined : items;
+	if (typeof value !== "object") return value;
+	if (ancestors.has(value)) {
+		throw new EphemerisError("E_EPHEMERIS_CYCLE", `${path} contains itself`);
 	}
-	if (!isPlainObject(value)) return value;
-	const entries: [string, unknown][] = [];
-	for (const [key, item] of Object.entries(value)) {
-		if (UNSAFE_KEYS.has(key)) {
-			throw new EphemerisError(
-				"E_EPHEMERIS_UNSAFE_KEY",
-				`${path}.${key} is not a key structured data may use`,
-			);
+	if (depth >= MAX_DEPTH) {
+		throw new EphemerisError(
+			"E_EPHEMERIS_TOO_DEEP",
+			`${path} is nested deeper than ${MAX_DEPTH} levels`,
+		);
+	}
+	if (!Array.isArray(value) && !isPlainObject(value)) return value;
+	ancestors.add(value);
+	try {
+		if (Array.isArray(value)) {
+			const items = value
+				.map((item, index) =>
+					clean(item, `${path}[${index}]`, ancestors, depth + 1),
+				)
+				.filter((item) => item !== undefined);
+			return items.length === 0 ? undefined : items;
 		}
-		const cleaned = clean(item, `${path}.${key}`);
-		if (cleaned !== undefined) entries.push([key, cleaned]);
+		const entries: [string, unknown][] = [];
+		for (const [key, item] of Object.entries(value)) {
+			if (UNSAFE_KEYS.has(key)) {
+				throw new EphemerisError(
+					"E_EPHEMERIS_UNSAFE_KEY",
+					`${path}.${key} is not a key structured data may use`,
+				);
+			}
+			const cleaned = clean(item, `${path}.${key}`, ancestors, depth + 1);
+			if (cleaned !== undefined) entries.push([key, cleaned]);
+		}
+		return entries.length === 0 ? undefined : Object.fromEntries(entries);
+	} finally {
+		ancestors.delete(value);
 	}
-	return entries.length === 0 ? undefined : Object.fromEntries(entries);
 }
 
 function typesOf(node: Data): [string, ...string[]] {
@@ -125,13 +147,37 @@ function typesOf(node: Data): [string, ...string[]] {
 
 /** `LocalBusiness` → `local-business`, `3DModel` → `3d-model`. */
 function kebab(type: string): string {
-	return type
-		.replace(/([a-z])([A-Z])/g, "$1-$2")
-		.replace(/([A-Z0-9]+)([A-Z][a-z])/g, "$1-$2")
-		.toLowerCase();
+	// A type given as an IRI (`https://schema.org/Product`) is named by its
+	// last segment; whatever is left is encoded, so it cannot add a `#`.
+	const local = type.slice(
+		Math.max(
+			type.lastIndexOf("/"),
+			type.lastIndexOf("#"),
+			type.lastIndexOf(":"),
+		) + 1,
+	);
+	return encodeURIComponent(
+		local
+			.replace(/([a-z])([A-Z])/g, "$1-$2")
+			.replace(/([A-Z0-9]+)([A-Z][a-z])/g, "$1-$2")
+			.toLowerCase(),
+	);
+}
+
+/** An `@id` the caller gave, resolved against `base`, or refused. */
+function resolveId(given: string, base: URL): string {
+	try {
+		return new URL(given, base).href;
+	} catch {
+		throw new EphemerisError(
+			"E_EPHEMERIS_INVALID_URL",
+			`"${given.slice(0, 200)}" is not an @id: not a URL, even relative to ${base.href}`,
+		);
+	}
 }
 
 /** `@type` and `@id` first, then the rest by name: the same bytes every time. */
+/** Ordered after `clean`, which already bounds the depth and refuses cycles. */
 function ordered(value: unknown): unknown {
 	if (Array.isArray(value)) return value.map(ordered);
 	if (!isPlainObject(value)) return value;
@@ -152,7 +198,8 @@ export class SchemaGraph {
 	/** Nodes by `@id`, in the order they were first declared. */
 	readonly #nodes = new Map<string, Data>();
 	readonly #slots = new Map<Slot, string>();
-	readonly #ranks = new Map<string, number>();
+	/** The suffixes used under each `#/schema/<type>/`, so none is given twice. */
+	readonly #suffixes = new Map<string, Set<string>>();
 
 	constructor(options: SchemaGraphOptions) {
 		this.#page = absoluteHttp(options.url, "the page URL");
@@ -200,13 +247,19 @@ export class SchemaGraph {
 		const given = data["@id"];
 		let id: string;
 		if (typeof given === "string") {
-			id = new URL(given, this.#page).href;
+			id = resolveId(given, this.#page);
 		} else {
 			const type = kebab(types[0]);
-			const rank = this.#ranks.get(type) ?? 0;
-			if (options.id === undefined) this.#ranks.set(type, rank + 1);
-			const suffix = options.id === undefined ? rank + 1 : options.id;
-			id = `${this.#page.href}#/schema/${type}/${encodeURIComponent(String(suffix))}`;
+			const used = this.#suffixes.get(type) ?? new Set<string>();
+			this.#suffixes.set(type, used);
+			// The first free rank: what a caller's own id took is skipped, so two
+			// nodes never share one.
+			let suffix = options.id === undefined ? "" : String(options.id);
+			for (let rank = 1; suffix === ""; rank++) {
+				if (!used.has(String(rank))) suffix = String(rank);
+			}
+			used.add(suffix);
+			id = `${this.#page.href}#/schema/${type}/${encodeURIComponent(suffix)}`;
 		}
 		this.#merge(id, data);
 		return this;
@@ -257,11 +310,18 @@ export class SchemaGraph {
 		const given = data["@id"];
 		const { on, fragment } = SLOTS[name];
 		const base = on === "site" ? this.#site : this.#page;
-		const id =
-			this.#slots.get(name) ??
-			(typeof given === "string"
-				? new URL(given, this.#page).href
-				: `${base.href}${fragment}`);
+		// A relative @id resolves where the slot lives: the identity's against
+		// the site, so it is the same IRI on every page.
+		const wanted =
+			typeof given === "string" ? resolveId(given, base) : undefined;
+		const taken = this.#slots.get(name);
+		if (taken !== undefined && wanted !== undefined && wanted !== taken) {
+			throw new EphemerisError(
+				"E_EPHEMERIS_SLOT_TAKEN",
+				`${name} is already ${taken}; a node with @id ${wanted} is another one, not a layer of it`,
+			);
+		}
+		const id = taken ?? wanted ?? `${base.href}${fragment}`;
 		this.#slots.set(name, id);
 		this.#merge(id, data);
 		return this;

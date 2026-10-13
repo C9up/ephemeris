@@ -74,7 +74,7 @@ from.
 Prices, currencies and dates are held to the form Google reads, refused
 rather than converted: a price is a number or decimal digits with a `.` —
 `"CHF 12"`, `"1,234.50"` or `-1` is `E_EPHEMERIS_INVALID_PRICE`; a currency is a
-three-letter ISO 4217 code (`E_EPHEMERIS_INVALID_CURRENCY`); a date is ISO
+ISO 4217 code, from the maintenance agency's list (`E_EPHEMERIS_INVALID_CURRENCY`); a date is ISO
 8601 and real (`E_EPHEMERIS_INVALID_DATE`), and a date-time without a time
 zone is a warning. A `Date` object is written in UTC, the same on every
 machine.
@@ -116,7 +116,8 @@ default availability, no shortened headline — and empty values (`undefined`,
 `null`, `""`, `[]`, `{}`) are dropped. Keys are ordered, so a page gives the
 same bytes on every render. `__proto__`, `constructor` and `prototype` are
 refused as keys (`E_EPHEMERIS_UNSAFE_KEY`), and the URLs must be absolute
-http(s) (`E_EPHEMERIS_INVALID_URL`).
+http(s) (`E_EPHEMERIS_INVALID_URL`). A second node with another `@id` in a
+filled slot is refused (`E_EPHEMERIS_SLOT_TAKEN`), not merged into the first.
 
 ## The script tag
 
