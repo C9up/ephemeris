@@ -33,6 +33,8 @@ jobs:
         with:
           node-version: '24'
       - run: pnpm install
+      # The JSON-LD tag is proved against a real HTML parser: Chromium's.
+      - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm exec tsc -p tsconfig.build.json --noEmit
       # And the tests: `tsconfig.build.json` leaves them out, so every type a
       # test relies on went ungated until this step ran the project's own

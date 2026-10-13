@@ -36,6 +36,26 @@ property, a wrong `@type` or a value outside a property's range does not
 compile. The types are generated from the release file in `vocabulary/` —
 `pnpm generate:schema` — and compile to no code.
 
+## The script tag
+
+```ts
+import { jsonLdScriptTag, toJsonLd } from '@c9up/ephemeris'
+
+jsonLdScriptTag(product, { nonce: response.nonce })
+// <script type="application/ld+json" nonce="…">{"@context":"https://schema.org",…}</script>
+
+toJsonLd(product) // the plain object, for a client that updates the page itself
+```
+
+The text has no `<`, `>` or `&`: they are written `\u003c`, `\u003e` and
+`\u0026`, which JSON reads back as the same characters, so data holding
+`</script>` or `<!--` cannot end the tag — proved against Chromium's parser in
+the tests. The nonce is the request's, passed in; the package never makes one
+up. `undefined` is left out and a `Date` becomes an ISO string; a function, a
+symbol, a `bigint`, `NaN`, a `Map`, a cycle or data nested 64 levels deep is
+refused with an `EphemerisError` (`E_EPHEMERIS_INVALID_VALUE`,
+`E_EPHEMERIS_CYCLE`, `E_EPHEMERIS_TOO_DEEP`) naming where it is.
+
 ## License
 
 MIT, except the schema.org vocabulary and the types generated from it
