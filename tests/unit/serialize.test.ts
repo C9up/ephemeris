@@ -133,6 +133,12 @@ describe("ephemeris > stringifyJsonLd", () => {
 		expect(refusal(() => toJsonLd(nothing)).message).toMatch(/gave nothing/);
 	});
 
+	it("takes an object without a prototype as a plain one", () => {
+		const bare: Record<string, unknown> = Object.create(null);
+		bare.name = "Anvil";
+		expect(toJsonLd({ about: bare })).toEqual({ about: { name: "Anvil" } });
+	});
+
 	it("keeps null, which JSON holds", () => {
 		expect(toJsonLd({ "@type": "Thing", name: null })).toEqual({
 			"@type": "Thing",

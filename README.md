@@ -36,6 +36,33 @@ property, a wrong `@type` or a value outside a property's range does not
 compile. The types are generated from the release file in `vocabulary/` —
 `pnpm generate:schema` — and compile to no code.
 
+## Google's requirements
+
+```ts
+import { breadcrumb, localBusiness, organization, website } from '@c9up/ephemeris'
+
+graph
+  .identity(localBusiness({ '@type': 'Store', name: 'ACME Biel', address }))
+  .website(website({ '@type': 'WebSite', name: 'ACME', url: 'https://acme.example/' }))
+  .breadcrumb(breadcrumb([{ name: 'Anvils', item: 'https://acme.example/anvils' }, { name: 'Executive Anvil' }]))
+```
+
+Each helper checks what Google Search needs of the node for a rich result,
+read from Search Central — the page and its date are on each rule
+(`ORGANIZATION`, `LOCAL_BUSINESS`, `WEBSITE`, `PROFILE_PAGE`, `BREADCRUMB`). A
+missing required property throws a `RequirementError`
+(`E_EPHEMERIS_MISSING_REQUIRED`, with `type`, `property` and `source`); a
+missing recommended one is a warning, handed to `onWarning` or written once
+with `console.warn` — `{ onWarning: () => {} }` silences it. `breadcrumb`
+numbers the trail and wants two crumbs at least, each with its URL but the
+last. `person` and `webPage` have no rich result of their own and are only
+bounded.
+
+Every helper bounds what it is given: no text over 10,000 characters
+(`E_EPHEMERIS_TOO_LONG`), no more than 32 crumbs (`E_EPHEMERIS_TOO_MANY`), and
+every URL (`url`, `sameAs`, `logo`, `image`, `item`…) absolute http(s) —
+`javascript:` and `data:` are refused (`E_EPHEMERIS_INVALID_URL`).
+
 ## The graph
 
 ```ts

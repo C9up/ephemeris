@@ -21,6 +21,7 @@
  * sets wins.
  */
 
+import { type Data, isPlainObject } from "./data.js";
 import { EphemerisError } from "./errors.js";
 import type {
 	BreadcrumbList,
@@ -63,16 +64,6 @@ const SLOTS: Record<Slot, { on: "site" | "page"; fragment: string }> = {
 
 /** Keys that would reach a prototype if a merge ever assigned them. */
 const UNSAFE_KEYS = new Set(["__proto__", "constructor", "prototype"]);
-
-type Data = Record<string, unknown>;
-
-function isPlainObject(value: unknown): value is Data {
-	if (typeof value !== "object" || value === null || Array.isArray(value)) {
-		return false;
-	}
-	const prototype: unknown = Object.getPrototypeOf(value);
-	return prototype === Object.prototype || prototype === null;
-}
 
 function absoluteHttp(value: string, what: string): URL {
 	let url: URL;

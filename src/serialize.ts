@@ -14,6 +14,7 @@
  * throws on a cycle or a `bigint`.
  */
 
+import { isPlainObject } from "./data.js";
 import { EphemerisError } from "./errors.js";
 
 /** A JSON-LD value once normalized: what `JSON.parse` would give back. */
@@ -59,11 +60,6 @@ function refuse(
 	reason: string,
 ): never {
 	throw new EphemerisError(code, `${pathOf(path)} ${reason}`);
-}
-
-function isPlainObject(value: object): boolean {
-	const prototype: unknown = Object.getPrototypeOf(value);
-	return prototype === Object.prototype || prototype === null;
 }
 
 function normalize(
