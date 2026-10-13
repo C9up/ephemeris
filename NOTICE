@@ -1,0 +1,17 @@
+@c9up/ephemeris
+Copyright (c) 2026 C9up — MIT License (see LICENSE).
+
+This package contains material from schema.org:
+
+- vocabulary/schemaorg-30.1-current-https.jsonld, the schema.org vocabulary,
+  release 30.1, from https://github.com/schemaorg/schemaorg
+  (data/releases/30.1/schemaorg-current-https.jsonld);
+- src/schema.ts, generated from that file: its type and property names and
+  their descriptions are schema.org's.
+
+The schema.org vocabulary is © the schema.org sponsors (Google, Microsoft,
+Yahoo and Yandex) and licensed under the Creative Commons
+Attribution-ShareAlike 3.0 License
+(https://creativecommons.org/licenses/by-sa/3.0/), per the terms of
+https://schema.org/docs/terms.html. src/schema.ts, an adaptation of it, is
+licensed under the same terms. The rest of the package is MIT.

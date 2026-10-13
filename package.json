@@ -2,7 +2,7 @@
   "name": "@c9up/ephemeris",
   "version": "0.1.0",
   "description": "Ephemeris — schema.org structured data for the Ream ecosystem: the whole vocabulary typed, an @graph of linked entities, JSON-LD that cannot break out of its script tag, and Google's rich-result requirements checked",
-  "license": "MIT",
+  "license": "MIT AND CC-BY-SA-3.0",
   "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
@@ -10,10 +10,15 @@
     ".": {
       "types": "./src/index.ts",
       "import": "./src/index.ts"
+    },
+    "./schema": {
+      "types": "./src/schema.ts",
+      "import": "./src/schema.ts"
     }
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
+    "generate:schema": "node scripts/generate-schema.ts",
     "test": "vitest run",
     "lint": "biome check src/ tests/",
     "test:coverage": "vitest run --coverage",
@@ -33,7 +38,8 @@
     "src",
     "dist",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "NOTICE"
   ],
   "publishConfig": {
     "main": "./dist/index.js",
@@ -42,6 +48,10 @@
       ".": {
         "types": "./dist/index.d.ts",
         "import": "./dist/index.js"
+      },
+      "./schema": {
+        "types": "./dist/schema.d.ts",
+        "import": "./dist/schema.js"
       }
     },
     "access": "public"
