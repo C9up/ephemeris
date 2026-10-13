@@ -4,6 +4,7 @@
  * and dates have the form Google reads — refused otherwise, never converted.
  */
 
+import { CURRENCIES } from "./currencies.js";
 import { type Data, isPlainObject } from "./data.js";
 import { EphemerisError } from "./errors.js";
 import {
@@ -42,7 +43,7 @@ const PRICE_KEYS = new Set([
 const GUIDELINES =
 	"https://developers.google.com/search/docs/appearance/structured-data/sd-policies";
 
-/** Three-letter ISO 4217 codes. */
+/** ISO 4217 codes, from the list kept in the package. */
 const CURRENCY_KEYS = new Set(["priceCurrency", "currency", "salaryCurrency"]);
 
 /** ISO 8601 dates and date-times. */
@@ -63,7 +64,6 @@ const DATE_KEYS = new Set([
 ]);
 
 const DECIMAL = /^\d+(\.\d+)?$/;
-const CURRENCY = /^[A-Z]{3}$/;
 const DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
 const DATE_TIME =
 	/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.\d+)?)?(Z|[+-]\d{2}:\d{2})?$/;
@@ -100,10 +100,10 @@ function checkPrice(value: unknown, path: string): void {
 }
 
 function checkCurrency(value: unknown, path: string): void {
-	if (typeof value !== "string" || !CURRENCY.test(value)) {
+	if (typeof value !== "string" || !CURRENCIES.has(value)) {
 		throw new EphemerisError(
 			"E_EPHEMERIS_INVALID_CURRENCY",
-			`${path} must be a three-letter ISO 4217 code such as "CHF", not ${JSON.stringify(value)}`,
+			`${path} must be an ISO 4217 currency code such as "CHF", not ${JSON.stringify(value)}`,
 		);
 	}
 }

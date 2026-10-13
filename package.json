@@ -20,7 +20,7 @@
     "build": "tsc -p tsconfig.build.json",
     "generate:schema": "node scripts/generate-schema.ts",
     "test": "vitest run",
-    "lint": "biome check src/ tests/",
+    "lint": "biome check src/ tests/ scripts/",
     "test:coverage": "vitest run --coverage",
     "typecheck": "tsc --noEmit"
   },

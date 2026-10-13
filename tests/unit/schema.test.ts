@@ -6,7 +6,7 @@ import {
 	generateSchema,
 	VOCABULARY_FILE,
 	VOCABULARY_VERSION,
-} from "../../scripts/generate-schema.js";
+} from "../../scripts/schema-generator.js";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const schemaFile = `${root}src/schema.ts`;

@@ -238,7 +238,7 @@ describe("ephemeris > product snippet", () => {
 		}
 	});
 
-	it.each(["chf", "CH", "Swiss francs", "€"])(
+	it.each(["chf", "CH", "Swiss francs", "€", "XYZ", "XXX", "XTS"])(
 		"refuses %s as a currency",
 		(currency) => {
 			expect(

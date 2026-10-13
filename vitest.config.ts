@@ -4,7 +4,7 @@ export default defineConfig({
 	test: {
 		coverage: {
 			provider: "v8",
-			include: ["src/**"],
+			include: ["src/**", "scripts/schema-generator.ts"],
 			exclude: ["src/**/*.d.ts"],
 			reporter: ["text-summary", "json-summary"],
 			thresholds: {
