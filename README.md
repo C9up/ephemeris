@@ -12,8 +12,6 @@ search engines in JSON-LD.
 
 No dependencies at run time.
 
-Not yet published: the package is being built.
-
 ## Types
 
 Every schema.org type and property, from release 30.1:
