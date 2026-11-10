@@ -14,30 +14,38 @@ import {
 	isReference,
 	type Rule,
 } from "./requirements.js";
+import { URL_OR_TEXT_PROPERTIES, URL_PROPERTIES } from "./url-properties.js";
 
 /** Longer than any name or description a page shows; a bound, not a style. */
 export const MAX_TEXT_LENGTH = 10_000;
 
-/** Properties whose string value is a URL a browser or crawler will follow. */
-const URL_KEYS = new Set([
-	"url",
-	"sameAs",
-	"logo",
-	"image",
-	"item",
-	"contentUrl",
-	"thumbnailUrl",
-	"embedUrl",
-	"acquireLicensePage",
-	"license",
-	"merchantReturnLink",
-	"mainEntityOfPage",
-	"target",
-	"urlTemplate",
-	"downloadUrl",
-	"installUrl",
-	"discussionUrl",
-	"hasMap",
+/**
+ * Keys Google reads as a URL that the vocabulary does not range over URL
+ * alone: a breadcrumb's `item`, an entry point's `urlTemplate`, an action's
+ * `target`. The rest comes from the release, in url-properties.ts.
+ */
+const GOOGLE_URL_KEYS = new Set(["item", "urlTemplate", "target"]);
+
+/**
+ * Schemes that run or embed what they carry once followed or rendered as a
+ * link. Refused in a property whose string may be a URL or text, where the
+ * text itself ("note: anvils") must stay allowed.
+ */
+const EXECUTABLE_SCHEMES = new Set([
+	"javascript:",
+	"vbscript:",
+	"data:",
+	"file:",
+	"blob:",
+]);
+
+/** What an absolute `@id` may be: a web IRI or one that names, never runs. */
+export const ID_SCHEMES = new Set([
+	"https:",
+	"http:",
+	"urn:",
+	"mailto:",
+	"tel:",
 ]);
 
 /** Amounts Google reads as a number, or a string of one with a `.`. */
@@ -92,6 +100,37 @@ function checkUrl(value: string, path: string): void {
 		throw new EphemerisError(
 			"E_EPHEMERIS_INVALID_URL",
 			`${path} must be an http(s) URL, not a ${url.protocol} one`,
+		);
+	}
+}
+
+/** The URL `value` parses to on its own, or undefined when it is relative or text. */
+function absolute(value: string): URL | undefined {
+	try {
+		return new URL(value);
+	} catch {
+		return undefined;
+	}
+}
+
+/** A string that may be text, refused only when it is an executable URL. */
+function checkNotExecutable(value: string, path: string): void {
+	const url = absolute(value);
+	if (url !== undefined && EXECUTABLE_SCHEMES.has(url.protocol)) {
+		throw new EphemerisError(
+			"E_EPHEMERIS_INVALID_URL",
+			`${path} must not be a ${url.protocol} URL`,
+		);
+	}
+}
+
+/** An `@id`: relative, or absolute with a scheme from {@link ID_SCHEMES}. */
+export function checkId(value: string, path: string): void {
+	const url = absolute(value);
+	if (url !== undefined && !ID_SCHEMES.has(url.protocol)) {
+		throw new EphemerisError(
+			"E_EPHEMERIS_INVALID_URL",
+			`${path} must be a relative, http(s), urn:, mailto: or tel: IRI, not a ${url.protocol} one`,
 		);
 	}
 }
@@ -252,7 +291,13 @@ function bound(
 				`${path} is ${value.length} characters, more than ${MAX_TEXT_LENGTH}`,
 			);
 		}
-		if (URL_KEYS.has(key)) checkUrl(value, path);
+		if (URL_PROPERTIES.has(key) || GOOGLE_URL_KEYS.has(key)) {
+			checkUrl(value, path);
+		} else if (URL_OR_TEXT_PROPERTIES.has(key)) {
+			checkNotExecutable(value, path);
+		} else if (key === "@id") {
+			checkId(value, path);
+		}
 		if (DATE_KEYS.has(key)) checkDate(value, path, key, owner);
 		return;
 	}

@@ -21,6 +21,7 @@
  * sets wins.
  */
 
+import { checkId } from "./build.js";
 import { type Data, isPlainObject, MAX_DEPTH } from "./data.js";
 import { EphemerisError } from "./errors.js";
 import type {
@@ -166,14 +167,17 @@ function kebab(type: string): string {
 
 /** An `@id` the caller gave, resolved against `base`, or refused. */
 function resolveId(given: string, base: URL): string {
+	let resolved: string;
 	try {
-		return new URL(given, base).href;
+		resolved = new URL(given, base).href;
 	} catch {
 		throw new EphemerisError(
 			"E_EPHEMERIS_INVALID_URL",
 			`"${given.slice(0, 200)}" is not an @id: not a URL, even relative to ${base.href}`,
 		);
 	}
+	checkId(resolved, `the @id "${given.slice(0, 200)}"`);
+	return resolved;
 }
 
 /** `@type` and `@id` first, then the rest by name: the same bytes every time. */

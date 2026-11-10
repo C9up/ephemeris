@@ -58,8 +58,18 @@ bounded.
 
 Every helper bounds what it is given: no text over 10,000 characters
 (`E_EPHEMERIS_TOO_LONG`), no more than 32 crumbs (`E_EPHEMERIS_TOO_MANY`), and
-every URL (`url`, `sameAs`, `logo`, `image`, `item`…) absolute http(s) —
-`javascript:` and `data:` are refused (`E_EPHEMERIS_INVALID_URL`).
+every URL absolute http(s) — `javascript:` and `data:` are refused
+(`E_EPHEMERIS_INVALID_URL`). The URL properties are every one schema.org
+ranges over URL alone (`url`, `sameAs`, `logo`, `codeRepository`,
+`isPartOf`…), generated from the vocabulary into `src/url-properties.ts`, plus
+Google's `item`, `target` and `urlTemplate`. Where a property takes a URL or
+text (`keywords`, `additionalType`…), text stays text but an executable URL
+(`javascript:`, `vbscript:`, `data:`, `file:`, `blob:`) is refused, and an
+`@id` is relative or an `http(s):`, `urn:`, `mailto:` or `tel:` IRI. Values
+are checked as they will be written: a `URL` instance, a `Date` or anything
+with `toJSON` is held to the forms of the string it gives, and an object JSON
+would write as `{}` (a `Map`, a class instance) is refused
+(`E_EPHEMERIS_INVALID_VALUE`).
 
 ### Content and commerce
 
@@ -116,7 +126,8 @@ default availability, no shortened headline — and empty values (`undefined`,
 `null`, `""`, `[]`, `{}`) are dropped. Keys are ordered, so a page gives the
 same bytes on every render. `__proto__`, `constructor` and `prototype` are
 refused as keys (`E_EPHEMERIS_UNSAFE_KEY`), and the URLs must be absolute
-http(s) (`E_EPHEMERIS_INVALID_URL`). A second node with another `@id` in a
+http(s) and an `@id` relative or an `http(s):`, `urn:`, `mailto:` or `tel:`
+IRI (`E_EPHEMERIS_INVALID_URL`). A second node with another `@id` in a
 filled slot is refused (`E_EPHEMERIS_SLOT_TAKEN`), not merged into the first.
 
 ## The script tag
