@@ -5,7 +5,7 @@
  */
 
 import { CURRENCIES } from "./currencies.js";
-import { type Data, isPlainObject, MAX_DEPTH } from "./data.js";
+import { type Data, isPlainObject, MAX_DEPTH, UNSAFE_KEYS } from "./data.js";
 import { EphemerisError } from "./errors.js";
 import {
 	type CheckOptions,
@@ -318,6 +318,12 @@ function bound(
 		});
 	} else if (isPlainObject(value)) {
 		for (const [name, item] of Object.entries(value)) {
+			if (UNSAFE_KEYS.has(name)) {
+				throw new EphemerisError(
+					"E_EPHEMERIS_UNSAFE_KEY",
+					`${path}.${name} is not a key structured data may use`,
+				);
+			}
 			bound(item, `${path}.${name}`, name, owner, ancestors, depth + 1);
 		}
 	}

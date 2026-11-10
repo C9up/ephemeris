@@ -22,7 +22,7 @@
  */
 
 import { checkId } from "./build.js";
-import { isPlainObject } from "./data.js";
+import { isPlainObject, UNSAFE_KEYS } from "./data.js";
 import { EphemerisError } from "./errors.js";
 import type {
 	BreadcrumbList,
@@ -70,9 +70,6 @@ const SLOTS: Record<Slot, { on: "site" | "page"; fragment: string }> = {
 	breadcrumb: { on: "page", fragment: "#breadcrumb" },
 	mainEntity: { on: "page", fragment: "#main-entity" },
 };
-
-/** Keys that would reach a prototype if a merge ever assigned them. */
-const UNSAFE_KEYS = new Set(["__proto__", "constructor", "prototype"]);
 
 function absoluteHttp(value: string, what: string): URL {
 	let url: URL;

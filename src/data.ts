@@ -1,6 +1,17 @@
 /** Deeper than any real document; a bound for data that was never one. */
 export const MAX_DEPTH = 64;
 
+/**
+ * Keys that would reach a prototype if a merge downstream ever assigned them:
+ * JSON.parse makes `__proto__` an own key, and `Object.assign` or a `[key] =`
+ * merge then sets the target's prototype instead of a property.
+ */
+export const UNSAFE_KEYS: ReadonlySet<string> = new Set([
+	"__proto__",
+	"constructor",
+	"prototype",
+]);
+
 /** Structured data as it is handled: plain objects keyed by property. */
 export type Data = Record<string, unknown>;
 

@@ -175,3 +175,25 @@ describe("ephemeris > helpers > values written through toJSON", () => {
 		expect(stringifyJsonLd(node)).toContain('"url":{}');
 	});
 });
+
+describe("ephemeris > helpers > keys that reach a prototype", () => {
+	it("refuses an own __proto__, constructor or prototype key, as the graph does", () => {
+		for (const key of ["__proto__", "constructor", "prototype"]) {
+			const logo: Record<string, unknown> = { "@type": "ImageObject" };
+			// An own data property, as JSON.parse defines it.
+			Object.defineProperty(logo, key, {
+				value: { polluted: true },
+				enumerable: true,
+				writable: true,
+				configurable: true,
+			});
+			const error = refusal(() =>
+				organization(organizationWith("logo", logo), silent),
+			);
+			expect(error.code).toBe("E_EPHEMERIS_UNSAFE_KEY");
+			expect(error.message).toBe(
+				`organization.logo.${key} is not a key structured data may use`,
+			);
+		}
+	});
+});

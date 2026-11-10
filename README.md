@@ -69,7 +69,8 @@ text (`keywords`, `additionalType`…), text stays text but an executable URL
 are checked as they will be written: a `URL` instance, a `Date` or anything
 with `toJSON` is held to the forms of the string it gives, and an object JSON
 would write as `{}` (a `Map`, a class instance) is refused
-(`E_EPHEMERIS_INVALID_VALUE`).
+(`E_EPHEMERIS_INVALID_VALUE`). A `__proto__`, `constructor` or `prototype` key is
+refused (`E_EPHEMERIS_UNSAFE_KEY`), as in the graph.
 
 ### Content and commerce
 
