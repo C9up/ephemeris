@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import ts from "typescript";
 import { describe, expect, it } from "vitest";
 import { generateSchema, typeName } from "../../scripts/schema-generator.js";
 
@@ -121,5 +124,102 @@ describe("ephemeris > the schema generator", () => {
 	it("names a term that starts with a digit", () => {
 		expect(typeName("3DModel")).toBe("_3DModel");
 		expect(typeName("Web-Page")).toBe("Web_Page");
+	});
+});
+
+/** A release with one more node: the hostile one under test. */
+function withNode(node: Record<string, unknown>): unknown {
+	return { "@graph": [...vocabulary["@graph"], node] };
+}
+
+describe("ephemeris > the schema generator > a tampered release", () => {
+	it("refuses a term name that could leave its string literal", () => {
+		const evil = 'Evil";\n}\nglobalThis.process.stdout.write("PWNED\\n");\n';
+		for (const name of [evil, 'Quote"', "New\nLine", "Back\\slash", ""]) {
+			expect(() =>
+				generateSchema(
+					withNode({
+						"@id": `schema:${name}`,
+						"@type": "rdfs:Class",
+						"rdfs:subClassOf": { "@id": "schema:Thing" },
+					}),
+				),
+			).toThrow(/not a schema\.org term name/);
+		}
+	});
+
+	it("refuses a hostile name among the terms a node refers to", () => {
+		for (const key of [
+			"rdfs:subClassOf",
+			"schema:domainIncludes",
+			"schema:rangeIncludes",
+			"schema:supersededBy",
+		]) {
+			expect(() =>
+				generateSchema(
+					withNode({
+						"@id": "schema:fine",
+						"@type": "rdf:Property",
+						[key]: { "@id": 'schema:x"; evil();' },
+					}),
+				),
+			).toThrow(/not a schema\.org term name/);
+		}
+	});
+
+	it("refuses an extension IRI that could leave its comment", () => {
+		for (const partOf of [
+			"https://auto.schema.org */ evil(); /*",
+			"javascript:alert(1)",
+			"https://a.example/}",
+		]) {
+			expect(() =>
+				generateSchema(
+					withNode({
+						"@id": "schema:Gadget",
+						"@type": "rdfs:Class",
+						"schema:isPartOf": { "@id": partOf },
+					}),
+				),
+			).toThrow(/not an extension IRI/);
+		}
+	});
+
+	it("keeps a comment's link only when it is a plain http(s) URL", () => {
+		const out = generateSchema(
+			withNode({
+				"@id": "schema:Gadget",
+				"@type": "rdfs:Class",
+				"rdfs:comment":
+					'See <a href="https://a.example/x}evil">the spec</a>, <a href="javascript:alert(1)">this</a> and [[na}me]].',
+			}),
+		);
+		expect(out).toContain("See the spec, this and [[na}me]].");
+		expect(out).not.toContain("javascript:");
+	});
+
+	it("writes types only: no statement that runs on import", () => {
+		// src/schema.ts is a public runtime entry (`./schema`): a statement
+		// there runs in every app that imports it.
+		for (const code of [
+			generateSchema(vocabulary),
+			readFileSync(
+				fileURLToPath(new URL("../../src/schema.ts", import.meta.url)),
+				"utf8",
+			),
+		]) {
+			const file = ts.createSourceFile(
+				"schema.ts",
+				code,
+				ts.ScriptTarget.ES2022,
+			);
+			const kinds = new Set(
+				file.statements.map((statement) => ts.SyntaxKind[statement.kind]),
+			);
+			expect([...kinds].sort()).toEqual([
+				"InterfaceDeclaration",
+				"TypeAliasDeclaration",
+			]);
+		}
 	});
 });

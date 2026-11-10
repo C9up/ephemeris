@@ -75,8 +75,40 @@ function text(value: unknown): string {
 
 const SCHEMA = "schema:";
 
+/**
+ * What a schema.org term is named with: every name in the releases is. The
+ * names are written into string literals and identifiers of src/schema.ts,
+ * a runtime entry, so a release (a file fetched from the network) carrying
+ * any other character — a quote, a newline — is refused, never written.
+ */
+const TERM_NAME = /^[A-Za-z0-9_-]+$/;
+
+/** An extension's IRI, written into a JSDoc `{@link}`. */
+const EXTENSION_IRI = /^https:\/\/[A-Za-z0-9.-]+\/?$/;
+
+/**
+ * A link a comment may keep: http(s) or a path on schema.org, with nothing
+ * that ends the `{@link}` tag or the line.
+ */
+const LINK = /^(https?:\/\/|\/)[^\s{}]*$/;
+
 function local(id: string): string {
-	return id.slice(SCHEMA.length);
+	const name = id.slice(SCHEMA.length);
+	if (!TERM_NAME.test(name)) {
+		throw new Error(
+			`not a schema.org term name: ${JSON.stringify(name.slice(0, 200))}`,
+		);
+	}
+	return name;
+}
+
+function extension(id: string | undefined): string | undefined {
+	if (id !== undefined && !EXTENSION_IRI.test(id)) {
+		throw new Error(
+			`not an extension IRI: ${JSON.stringify(id.slice(0, 200))}`,
+		);
+	}
+	return id;
 }
 
 function readTerms(vocabulary: unknown): Map<string, Term> {
@@ -101,7 +133,7 @@ function readTerms(vocabulary: unknown): Map<string, Term> {
 			domains: schemaIds(node["schema:domainIncludes"]),
 			ranges: schemaIds(node["schema:rangeIncludes"]),
 			supersededBy: schemaIds(node["schema:supersededBy"]),
-			partOf: ids(node["schema:isPartOf"])[0],
+			partOf: extension(ids(node["schema:isPartOf"])[0]),
 		});
 	}
 	return terms;
@@ -116,12 +148,13 @@ export function typeName(name: string): string {
 /** schema.org's comment markup as JSDoc: links kept, tags dropped. */
 function toJsDoc(term: Term, indent: string, notes: string[]): string {
 	const body = term.comment
-		.replace(/\[\[([^\]]+)\]\]/g, "{@link https://schema.org/$1 $1}")
+		.replace(/\[\[([A-Za-z0-9_-]+)\]\]/g, "{@link https://schema.org/$1 $1}")
 		.replace(
 			/<a\s+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g,
 			(...match: string[]) => {
 				const [, href = "", label = ""] = match;
-				return `{@link ${href} ${label.replace(/<[^>]+>/g, "").trim()}}`;
+				const text = label.replace(/<[^>]+>/g, "").trim();
+				return LINK.test(href) ? `{@link ${href} ${text}}` : text;
 			},
 		)
 		.replace(/<br\s*\/?>/g, "\n")
@@ -339,7 +372,7 @@ export type WithActionConstraints<T extends ActionBase> = T &
 		const members = props
 			.map(
 				(property) =>
-					`${toJsDoc(property, "\t", notesOf(property, "Consider using"))}\t"${property.name}"?: SchemaValue<${propertyType(property)}, "${property.name}">;\n`,
+					`${toJsDoc(property, "\t", notesOf(property, "Consider using"))}\t${JSON.stringify(property.name)}?: SchemaValue<${propertyType(property)}, ${JSON.stringify(property.name)}>;\n`,
 			)
 			.join("");
 		return `interface ${name}Base extends ${heritage} {\n${members}}\n`;
@@ -352,7 +385,10 @@ export type WithActionConstraints<T extends ActionBase> = T &
 		const members = [...(membersOf.get(term.name) ?? [])]
 			.filter((member) => !classNames.has(member))
 			.sort(byName)
-			.flatMap((member) => [`"https://schema.org/${member}"`, `"${member}"`]);
+			.flatMap((member) => [
+				JSON.stringify(`https://schema.org/${member}`),
+				JSON.stringify(member),
+			]);
 		const primitive = primitiveOf(term.name);
 
 		if (term.name === "DataType") {
@@ -365,7 +401,7 @@ export type WithActionConstraints<T extends ActionBase> = T &
 		if (isRole(term.name)) {
 			out.push(baseOf(term));
 			out.push(
-				`export type ${name}Leaf<TContent, TProperty extends string> = Omit<${name}Base, TProperty> & {\n\t"@type": "${term.name}";\n} & {\n\t[key in TProperty]: TContent;\n};\n`,
+				`export type ${name}Leaf<TContent, TProperty extends string> = Omit<${name}Base, TProperty> & {\n\t"@type": ${JSON.stringify(term.name)};\n} & {\n\t[key in TProperty]: TContent;\n};\n`,
 			);
 			const union = [
 				`${name}Leaf<TContent, TProperty>`,
@@ -381,7 +417,7 @@ export type WithActionConstraints<T extends ActionBase> = T &
 		if (isNode(term.name)) {
 			out.push(baseOf(term));
 			out.push(
-				`export interface ${name}Leaf extends ${name}Base {\n\t"@type": "${term.name}";\n}\n`,
+				`export interface ${name}Leaf extends ${name}Base {\n\t"@type": ${JSON.stringify(term.name)};\n}\n`,
 			);
 			parts.push(`${name}Leaf`);
 		}
