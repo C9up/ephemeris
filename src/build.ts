@@ -182,18 +182,55 @@ function checkDate(
 }
 
 /**
+ * What the serializer writes for `value`, resolved the way serialize.ts
+ * resolves it: a `Date` as its ISO string, an object with `toJSON` as what
+ * that gives (called once), an array or plain object as itself. The checks
+ * hold for that, not for the object producing it: a `URL` instance of
+ * `javascript:` or a `toJSON` returning 50,000 characters is written as a
+ * string all the same. Anything else JSON would write as `{}`, so it is
+ * refused here as the serializer refuses it.
+ */
+function written(value: object, path: string, fromToJSON: boolean): unknown {
+	if (value instanceof Date) {
+		if (Number.isNaN(value.getTime())) {
+			throw new EphemerisError(
+				"E_EPHEMERIS_INVALID_VALUE",
+				`${path} is an invalid Date`,
+			);
+		}
+		return value.toISOString();
+	}
+	const toJSON: unknown = Reflect.get(value, "toJSON");
+	if (typeof toJSON === "function" && !fromToJSON) {
+		const result: unknown = Reflect.apply(toJSON, value, []);
+		return typeof result === "object" && result !== null
+			? written(result, path, true)
+			: result;
+	}
+	if (Array.isArray(value) || isPlainObject(value)) return value;
+	throw new EphemerisError(
+		"E_EPHEMERIS_INVALID_VALUE",
+		`${path} is a ${value.constructor?.name ?? "object"}, which JSON would write as {}`,
+	);
+}
+
+/**
  * Every value of `node` held to the forms above, at any depth — bounded like
  * any document: a cycle or 64 levels of nesting is refused, never a stack
  * overflow.
  */
 function bound(
-	value: unknown,
+	given: unknown,
 	path: string,
 	key: string,
 	owner: Owner,
 	ancestors: Set<object> = new Set(),
 	depth = 0,
 ): void {
+	const value =
+		typeof given === "object" && given !== null
+			? written(given, path, false)
+			: given;
 	// Absent is absent: the serializer and the graph leave it out.
 	if (value === undefined || value === null) return;
 	if (PRICE_KEYS.has(key) && !Array.isArray(value)) checkPrice(value, path);
