@@ -22,7 +22,7 @@
  */
 
 import { checkId } from "./build.js";
-import { type Data, isPlainObject, MAX_DEPTH } from "./data.js";
+import { isPlainObject } from "./data.js";
 import { EphemerisError } from "./errors.js";
 import type {
 	BreadcrumbList,
@@ -32,6 +32,7 @@ import type {
 	WebPage,
 	WebSite,
 } from "./schema.js";
+import { type JsonLdValue, toJsonLd } from "./serialize.js";
 
 export interface SchemaGraphOptions {
 	/** The page's absolute URL: the base of its nodes' `@id`s. */
@@ -42,6 +43,13 @@ export interface SchemaGraphOptions {
 
 /** A node as given: an object with its type. */
 type Node = Exclude<Thing, string>;
+
+/** A node once normalized: what JSON writes back unchanged. */
+type JsonLdNode = { [key: string]: JsonLdValue };
+
+function isJsonLdNode(value: JsonLdValue | undefined): value is JsonLdNode {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
 
 type Slot = "identity" | "website" | "webPage" | "breadcrumb" | "mainEntity";
 
@@ -86,53 +94,35 @@ function absoluteHttp(value: string, what: string): URL {
 	return url;
 }
 
-/** A value with its empty parts removed: `undefined`, `null`, `""`, `[]`, `{}`. */
-function clean(
-	value: unknown,
-	path: string,
-	ancestors: Set<object> = new Set(),
-	depth = 0,
-): unknown {
-	if (value === undefined || value === null || value === "") return undefined;
+/**
+ * A normalized value with its empty parts removed: `null`, `""`, `[]`, `{}`.
+ * Normalization already refused cycles and bounded the depth.
+ */
+function clean(value: JsonLdValue, path: string): JsonLdValue | undefined {
+	if (value === null || value === "") return undefined;
+	if (Array.isArray(value)) {
+		const items = value.flatMap((item, index) => {
+			const cleaned = clean(item, `${path}[${index}]`);
+			return cleaned === undefined ? [] : [cleaned];
+		});
+		return items.length === 0 ? undefined : items;
+	}
 	if (typeof value !== "object") return value;
-	if (ancestors.has(value)) {
-		throw new EphemerisError("E_EPHEMERIS_CYCLE", `${path} contains itself`);
-	}
-	if (depth >= MAX_DEPTH) {
-		throw new EphemerisError(
-			"E_EPHEMERIS_TOO_DEEP",
-			`${path} is nested deeper than ${MAX_DEPTH} levels`,
-		);
-	}
-	if (!Array.isArray(value) && !isPlainObject(value)) return value;
-	ancestors.add(value);
-	try {
-		if (Array.isArray(value)) {
-			const items = value
-				.map((item, index) =>
-					clean(item, `${path}[${index}]`, ancestors, depth + 1),
-				)
-				.filter((item) => item !== undefined);
-			return items.length === 0 ? undefined : items;
+	const entries: [string, JsonLdValue][] = [];
+	for (const [key, item] of Object.entries(value)) {
+		if (UNSAFE_KEYS.has(key)) {
+			throw new EphemerisError(
+				"E_EPHEMERIS_UNSAFE_KEY",
+				`${path}.${key} is not a key structured data may use`,
+			);
 		}
-		const entries: [string, unknown][] = [];
-		for (const [key, item] of Object.entries(value)) {
-			if (UNSAFE_KEYS.has(key)) {
-				throw new EphemerisError(
-					"E_EPHEMERIS_UNSAFE_KEY",
-					`${path}.${key} is not a key structured data may use`,
-				);
-			}
-			const cleaned = clean(item, `${path}.${key}`, ancestors, depth + 1);
-			if (cleaned !== undefined) entries.push([key, cleaned]);
-		}
-		return entries.length === 0 ? undefined : Object.fromEntries(entries);
-	} finally {
-		ancestors.delete(value);
+		const cleaned = clean(item, `${path}.${key}`);
+		if (cleaned !== undefined) entries.push([key, cleaned]);
 	}
+	return entries.length === 0 ? undefined : Object.fromEntries(entries);
 }
 
-function typesOf(node: Data): [string, ...string[]] {
+function typesOf(node: JsonLdNode): [string, ...string[]] {
 	const type = node["@type"];
 	const [first, ...rest] = (Array.isArray(type) ? type : [type]).filter(
 		(entry): entry is string => typeof entry === "string" && entry !== "",
@@ -181,17 +171,16 @@ function resolveId(given: string, base: URL): string {
 }
 
 /** `@type` and `@id` first, then the rest by name: the same bytes every time. */
-/** Ordered after `clean`, which already bounds the depth and refuses cycles. */
-function ordered(value: unknown): unknown {
+function ordered(value: JsonLdValue): JsonLdValue {
 	if (Array.isArray(value)) return value.map(ordered);
-	if (!isPlainObject(value)) return value;
-	const keys = Object.keys(value).sort((a, b) => {
-		const rank = (key: string) =>
-			key === "@type" ? 0 : key === "@id" ? 1 : key.startsWith("@") ? 2 : 3;
+	if (!isJsonLdNode(value)) return value;
+	const rank = (key: string) =>
+		key === "@type" ? 0 : key === "@id" ? 1 : key.startsWith("@") ? 2 : 3;
+	const entries = Object.entries(value).sort(
 		// Keys are unique, so two of them are never equal.
-		return rank(a) - rank(b) || (a < b ? -1 : 1);
-	});
-	return Object.fromEntries(keys.map((key) => [key, ordered(value[key])]));
+		([a], [b]) => rank(a) - rank(b) || (a < b ? -1 : 1),
+	);
+	return Object.fromEntries(entries.map(([key, item]) => [key, ordered(item)]));
 }
 
 const reference = (id: string) => ({ "@id": id });
@@ -200,7 +189,7 @@ export class SchemaGraph {
 	readonly #page: URL;
 	readonly #site: URL;
 	/** Nodes by `@id`, in the order they were first declared. */
-	readonly #nodes = new Map<string, Data>();
+	readonly #nodes = new Map<string, JsonLdNode>();
 	readonly #slots = new Map<Slot, string>();
 	/**
 	 * The `@id`s the graph generated. Each belongs to the node it was given
@@ -287,8 +276,12 @@ export class SchemaGraph {
 		return id;
 	}
 
-	/** The graph, ready for `jsonLdScriptTag` or `toJsonLd`. */
-	toJsonLd(): { "@context": "https://schema.org"; "@graph": unknown[] } {
+	/**
+	 * The graph, ready for `jsonLdScriptTag` or any `JSON.stringify`: every
+	 * node was normalized when it was added, so it holds only what JSON
+	 * writes back unchanged.
+	 */
+	toJsonLd(): { "@context": "https://schema.org"; "@graph": JsonLdValue[] } {
 		const nodes = new Map(
 			[...this.#nodes].map(([id, node]) => [id, { ...node }]),
 		);
@@ -296,7 +289,7 @@ export class SchemaGraph {
 			const id = this.#slots.get(name);
 			return id === undefined ? undefined : nodes.get(id);
 		};
-		const link = (from: Data | undefined, key: string, to: Slot) => {
+		const link = (from: JsonLdNode | undefined, key: string, to: Slot) => {
 			const target = this.#slots.get(to);
 			if (
 				from === undefined ||
@@ -322,7 +315,10 @@ export class SchemaGraph {
 		];
 		return {
 			"@context": "https://schema.org",
-			"@graph": order.map((id) => ordered(nodes.get(id))),
+			"@graph": order.flatMap((id) => {
+				const node = nodes.get(id);
+				return node === undefined ? [] : [ordered(node)];
+			}),
 		};
 	}
 
@@ -349,18 +345,25 @@ export class SchemaGraph {
 		return this;
 	}
 
-	#clean(node: Node): Data {
+	/**
+	 * The node as JSON will write it — a Date as its ISO string, a value with
+	 * `toJSON` as what it gives, and NaN, a Map, a function refused — then
+	 * without its empty parts. Photon, inker and aurora write `toJsonLd()`
+	 * with a plain `JSON.stringify`, which would turn those into `null`, `{}`
+	 * or nothing at all.
+	 */
+	#clean(node: Node): JsonLdNode {
 		if (!isPlainObject(node)) {
 			throw new EphemerisError(
 				"E_EPHEMERIS_INVALID_NODE",
 				"a node must be a plain object",
 			);
 		}
-		const cleaned = clean(node, "node");
-		return isPlainObject(cleaned) ? cleaned : {};
+		const cleaned = clean(toJsonLd(node), "node");
+		return isJsonLdNode(cleaned) ? cleaned : {};
 	}
 
-	#merge(id: string, data: Data): void {
+	#merge(id: string, data: JsonLdNode): void {
 		const existing = this.#nodes.get(id);
 		const types = [
 			...new Set([
@@ -368,11 +371,12 @@ export class SchemaGraph {
 				...typesOf(data),
 			]),
 		];
-		const merged: Data = Object.fromEntries([
+		const merged: JsonLdNode = Object.fromEntries([
 			...Object.entries(existing ?? {}),
 			...Object.entries(data),
 		]);
-		merged["@type"] = types.length === 1 ? types[0] : types;
+		const [only, ...more] = types;
+		merged["@type"] = only !== undefined && more.length === 0 ? only : types;
 		merged["@id"] = id;
 		this.#nodes.set(id, merged);
 	}

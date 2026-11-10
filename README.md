@@ -120,6 +120,12 @@ published by the identity, the page is part of the website and has the
 breadcrumb and the main entity, which has the page — each link only when both
 nodes are there, and never over a value the caller set.
 
+Each node is normalized as it is added — a `Date` as its ISO string, a value
+with `toJSON` as what it gives — and a value JSON cannot hold (`NaN`,
+`Infinity`, a `Map`, a class instance, a function) is refused
+(`E_EPHEMERIS_INVALID_VALUE`), so `toJsonLd()` is plain data any
+`JSON.stringify` writes faithfully.
+
 A layout and a page may describe the same node: the declarations merge, the
 types are united, and what the later one sets wins. Nothing is invented — no
 default availability, no shortened headline — and empty values (`undefined`,
