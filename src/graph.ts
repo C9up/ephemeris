@@ -202,8 +202,11 @@ export class SchemaGraph {
 	/** Nodes by `@id`, in the order they were first declared. */
 	readonly #nodes = new Map<string, Data>();
 	readonly #slots = new Map<Slot, string>();
-	/** The suffixes used under each `#/schema/<type>/`, so none is given twice. */
-	readonly #suffixes = new Map<string, Set<string>>();
+	/**
+	 * The `@id`s the graph generated. Each belongs to the node it was given
+	 * to: a caller's own id landing on one names another node.
+	 */
+	readonly #generated = new Set<string>();
 
 	constructor(options: SchemaGraphOptions) {
 		this.#page = absoluteHttp(options.url, "the page URL");
@@ -249,24 +252,39 @@ export class SchemaGraph {
 		const data = this.#clean(node);
 		const types = typesOf(data);
 		const given = data["@id"];
+		const base = `${this.#page.href}#/schema/${kebab(types[0])}/`;
+		const own = options.id === undefined ? "" : String(options.id);
 		let id: string;
 		if (typeof given === "string") {
-			id = resolveId(given, this.#page);
+			id = this.#own(resolveId(given, this.#page));
+		} else if (own !== "") {
+			id = this.#own(`${base}${encodeURIComponent(own)}`);
 		} else {
-			const type = kebab(types[0]);
-			const used = this.#suffixes.get(type) ?? new Set<string>();
-			this.#suffixes.set(type, used);
-			// The first free rank: what a caller's own id took is skipped, so two
-			// nodes never share one.
-			let suffix = options.id === undefined ? "" : String(options.id);
-			for (let rank = 1; suffix === ""; rank++) {
-				if (!used.has(String(rank))) suffix = String(rank);
-			}
-			used.add(suffix);
-			id = `${this.#page.href}#/schema/${type}/${encodeURIComponent(suffix)}`;
+			// The first free rank: an id a caller took is skipped, so two nodes
+			// never share one.
+			let rank = 1;
+			while (this.#nodes.has(`${base}${rank}`)) rank++;
+			id = `${base}${rank}`;
+			this.#generated.add(id);
 		}
 		this.#merge(id, data);
 		return this;
+	}
+
+	/**
+	 * A caller's own id, refused when the graph generated it for another node.
+	 * @unhead/schema-org numbers its nodes the same way and merges an explicit
+	 * id into the node that drew the same rank; two nodes the caller did not
+	 * say were one are kept apart here instead.
+	 */
+	#own(id: string): string {
+		if (this.#generated.has(id)) {
+			throw new EphemerisError(
+				"E_EPHEMERIS_ID_TAKEN",
+				`${id} was generated for another node; give this one an id of its own`,
+			);
+		}
+		return id;
 	}
 
 	/** The graph, ready for `jsonLdScriptTag` or `toJsonLd`. */
@@ -317,7 +335,7 @@ export class SchemaGraph {
 		// A relative @id resolves where the slot lives: the identity's against
 		// the site, so it is the same IRI on every page.
 		const wanted =
-			typeof given === "string" ? resolveId(given, base) : undefined;
+			typeof given === "string" ? this.#own(resolveId(given, base)) : undefined;
 		const taken = this.#slots.get(name);
 		if (taken !== undefined && wanted !== undefined && wanted !== taken) {
 			throw new EphemerisError(

@@ -128,7 +128,9 @@ same bytes on every render. `__proto__`, `constructor` and `prototype` are
 refused as keys (`E_EPHEMERIS_UNSAFE_KEY`), and the URLs must be absolute
 http(s) and an `@id` relative or an `http(s):`, `urn:`, `mailto:` or `tel:`
 IRI (`E_EPHEMERIS_INVALID_URL`). A second node with another `@id` in a
-filled slot is refused (`E_EPHEMERIS_SLOT_TAKEN`), not merged into the first.
+filled slot is refused (`E_EPHEMERIS_SLOT_TAKEN`), not merged into the first,
+and so is an `options.id` or `@id` equal to the rank the graph generated for
+another node (`E_EPHEMERIS_ID_TAKEN`); the same id given twice still layers.
 
 ## The script tag
 
