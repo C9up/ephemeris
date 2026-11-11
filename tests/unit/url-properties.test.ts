@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
+	generateScalarProperties,
 	generateUrlProperties,
 	VOCABULARY_FILE,
 } from "../../scripts/schema-generator.js";
@@ -11,6 +12,10 @@ import {
 	SchemaGraph,
 	stringifyJsonLd,
 } from "../../src/index.js";
+import {
+	BOOLEAN_PROPERTIES,
+	NUMBER_PROPERTIES,
+} from "../../src/scalar-properties.js";
 import type { OrganizationLeaf } from "../../src/schema.js";
 import {
 	URL_OR_TEXT_PROPERTIES,
@@ -63,6 +68,28 @@ describe("ephemeris > URL properties > generated from the vocabulary", () => {
 		}
 		for (const name of ["keywords", "colleague", "gameLocation", "target"]) {
 			expect(URL_OR_TEXT_PROPERTIES.has(name)).toBe(true);
+		}
+	});
+});
+
+describe("ephemeris > scalar properties > generated from the vocabulary", () => {
+	it("is up to date with the vendored release", () => {
+		expect(readFileSync(`${root}src/scalar-properties.ts`, "utf8")).toBe(
+			generateScalarProperties(vocabulary),
+		);
+	});
+
+	it("holds the properties ranged over a number or a boolean, through their kinds", () => {
+		// Integer and Float are kinds of Number.
+		for (const name of ["price", "ratingValue", "position", "offerCount"]) {
+			expect(NUMBER_PROPERTIES.has(name)).toBe(true);
+		}
+		for (const name of ["directApply", "isAccessibleForFree"]) {
+			expect(BOOLEAN_PROPERTIES.has(name)).toBe(true);
+		}
+		for (const name of ["name", "url", "image", "description"]) {
+			expect(NUMBER_PROPERTIES.has(name)).toBe(false);
+			expect(BOOLEAN_PROPERTIES.has(name)).toBe(false);
 		}
 	});
 });

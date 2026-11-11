@@ -9,6 +9,7 @@
 
 import { type Data, isPlainObject } from "./data.js";
 import { EphemerisError } from "./errors.js";
+import { BOOLEAN_PROPERTIES, NUMBER_PROPERTIES } from "./scalar-properties.js";
 
 /** A warning: not an error, the node is still valid structured data. */
 export interface RequirementWarning {
@@ -84,10 +85,28 @@ export function isReference(value: Data): boolean {
 	return keys.length > 0 && keys.every((key) => key === "@id");
 }
 
+/**
+ * What the graph leaves out of a node: `undefined`, `null`, `""`, and an
+ * array or an object holding nothing else. `{}` or `[{}]` given for a
+ * property is no value of it, whatever helper reads it.
+ */
 export function isEmpty(value: unknown): boolean {
 	if (value === undefined || value === null || value === "") return true;
 	if (Array.isArray(value)) return value.every(isEmpty);
+	if (isPlainObject(value)) return Object.values(value).every(isEmpty);
 	return false;
+}
+
+/**
+ * Whether `value` gives `key` a value: not empty, and not a number or a
+ * boolean where the vocabulary ranges `key` over neither — `name: false` or
+ * `url: 0` names nothing, so it does not meet a requirement.
+ */
+function holds(key: string, value: unknown): boolean {
+	if (Array.isArray(value)) return value.some((item) => holds(key, item));
+	if (typeof value === "number") return NUMBER_PROPERTIES.has(key);
+	if (typeof value === "boolean") return BOOLEAN_PROPERTIES.has(key);
+	return !isEmpty(value);
 }
 
 /**
@@ -130,13 +149,13 @@ function scopeOf(paths: readonly string[]): string[] {
 	return first.slice(0, length);
 }
 
-/** Whether `parents` then `key`, below `owner`, reach a value that is not empty. */
+/** Whether `parents` then `key`, below `owner`, reach a value `key` holds. */
 function reaches(
 	owner: Data,
 	parents: readonly string[],
 	key: string,
 ): boolean {
-	return walk(owner, parents).some((parent) => !isEmpty(parent[key]));
+	return walk(owner, parents).some((parent) => holds(key, parent[key]));
 }
 
 /** The owners where none of the alternatives has a value. */

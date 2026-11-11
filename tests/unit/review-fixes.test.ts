@@ -4,16 +4,19 @@ import {
 	EphemerisError,
 	event,
 	imageObject,
+	jobPosting,
 	merchantReturnPolicy,
 	organization,
 	person,
 	product,
 	profilePage,
+	RequirementError,
 	recipe,
 	review,
 	SchemaGraph,
 	stringifyJsonLd,
 	toJsonLd,
+	website,
 } from "../../src/index.js";
 import type {
 	CreativeWorkLeaf,
@@ -89,7 +92,7 @@ describe("ephemeris > review fixes > a Date from a database row", () => {
 });
 
 describe("ephemeris > review fixes > checks no longer skipped", () => {
-	it("checks an empty object instead of taking it for a reference", () => {
+	it("takes an empty object for absent, not for a reference", () => {
 		expect(
 			refusal(() =>
 				review(
@@ -102,7 +105,7 @@ describe("ephemeris > review fixes > checks no longer skipped", () => {
 					silent,
 				),
 			),
-		).toMatchObject({ property: "reviewRating.ratingValue" });
+		).toMatchObject({ property: "reviewRating" });
 		expect(
 			refusal(() =>
 				product(
@@ -111,7 +114,8 @@ describe("ephemeris > review fixes > checks no longer skipped", () => {
 				),
 			),
 		).toMatchObject({
-			type: "Offer",
+			type: "Product",
+			property: "review or aggregateRating or offers",
 		});
 		expect(
 			refusal(() =>
@@ -120,9 +124,97 @@ describe("ephemeris > review fixes > checks no longer skipped", () => {
 					silent,
 				),
 			),
+		).toMatchObject({ property: "mainEntity" });
+		expect(
+			refusal(() =>
+				profilePage(
+					{
+						"@type": "ProfilePage",
+						mainEntity: { "@type": "Person", name: [JSON.parse("{}")] },
+					},
+					silent,
+				),
+			),
 		).toMatchObject({
 			property: "mainEntity.name or mainEntity.alternateName",
 		});
+	});
+
+	it("takes [{}], {}, or a scalar the property does not range over for absent", () => {
+		// The graph drops `{}` and `[{}]`: a WebSite would be written with
+		// neither of the two properties it requires.
+		for (const empty of ["[{}]", "{}", '[{"a": [null, ""]}]']) {
+			const error = refusal(() =>
+				website(
+					{
+						"@type": "WebSite",
+						name: JSON.parse(empty),
+						url: "https://a.example/",
+					},
+					silent,
+				),
+			);
+			expect(error).toBeInstanceOf(RequirementError);
+			expect(error).toMatchObject({
+				code: "E_EPHEMERIS_MISSING_REQUIRED",
+				property: "name",
+			});
+		}
+		// `false` and `0` name no site and are no URL.
+		const row = JSON.parse('{"name": false, "url": 0}');
+		expect(
+			refusal(() =>
+				website(
+					{ "@type": "WebSite", name: row.name, url: "https://a.example/" },
+					silent,
+				),
+			),
+		).toMatchObject({ property: "name" });
+		expect(
+			refusal(() =>
+				website({ "@type": "WebSite", name: "ACME", url: row.url }, silent),
+			),
+		).toMatchObject({ property: "url" });
+		expect(
+			refusal(() =>
+				product(
+					{
+						"@type": "Product",
+						name: row.name,
+						offers: { "@type": "Offer", price: "12", priceCurrency: "CHF" },
+					},
+					silent,
+				),
+			),
+		).toMatchObject({ type: "Product", property: "name" });
+	});
+
+	it("keeps a number or a boolean where the vocabulary ranges the property over it", () => {
+		// A free offer: price 0 is a price.
+		expect(() =>
+			product(
+				{
+					"@type": "Product",
+					name: "Anvil",
+					offers: { "@type": "Offer", price: 0, priceCurrency: "CHF" },
+				},
+				silent,
+			),
+		).not.toThrow();
+		const warnings: string[] = [];
+		jobPosting(
+			{
+				"@type": "JobPosting",
+				title: "Smith",
+				description: "Forge anvils.",
+				datePosted: "2026-10-01",
+				hiringOrganization: { "@type": "Organization", name: "ACME SA" },
+				jobLocation: { "@type": "Place", address: "Biel" },
+				directApply: false,
+			},
+			{ onWarning: (warning) => warnings.push(warning.property) },
+		);
+		expect(warnings).not.toContain("directApply");
 	});
 
 	it("takes null for absent in conditional requirements", () => {

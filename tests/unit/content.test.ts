@@ -587,12 +587,15 @@ describe("ephemeris > shapes a database may send", () => {
 		);
 		const reviewRating = { "@type": "Rating", ratingValue: 4 } as const;
 		const itemReviewed = { "@type": "Thing", name: "A" } as const;
-		expect(() =>
-			review(
-				{ "@type": "Review", itemReviewed, reviewRating, author: odd.author },
-				silent,
+		// 42 names no author: the vocabulary ranges author over nodes only.
+		expect(
+			refusal(() =>
+				review(
+					{ "@type": "Review", itemReviewed, reviewRating, author: odd.author },
+					silent,
+				),
 			),
-		).not.toThrow();
+		).toMatchObject({ property: "author" });
 		expect(() =>
 			review(
 				{

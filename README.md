@@ -51,7 +51,11 @@ read from Search Central — the page and its date are on each rule
 missing required property throws a `RequirementError`
 (`E_EPHEMERIS_MISSING_REQUIRED`, with `type`, `property` and `source`); a
 missing recommended one is a warning, handed to `onWarning` or written once
-with `console.warn` — `{ onWarning: () => {} }` silences it. `breadcrumb`
+with `console.warn` — `{ onWarning: () => {} }` silences it. A property is
+there when it holds a value the graph writes: `{}`, `[{}]`, `null` or `""` is
+absent, and so is a number or a boolean where schema.org ranges the property
+over neither (`name: false`, `url: 0`; `price: 0` and `directApply: false`
+count, from `src/scalar-properties.ts`, generated from the vocabulary). `breadcrumb`
 numbers the trail and wants two crumbs at least, each with its URL but the
 last. `person` and `webPage` have no rich result of their own and are only
 bounded.
