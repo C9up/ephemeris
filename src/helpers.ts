@@ -180,9 +180,9 @@ export function organization<T extends NodeOf<Organization>>(
 	node: T,
 	options: CheckOptions = {},
 ): T {
-	const built = build(node, "organization", ORGANIZATION, options);
-	checkPolicies(built, options);
-	return built;
+	return build(node, "organization", ORGANIZATION, options, (data) =>
+		checkPolicies(data, options),
+	);
 }
 
 /** A business with a place customers come to — a shop, a restaurant. */
@@ -190,9 +190,9 @@ export function localBusiness<T extends NodeOf<LocalBusiness>>(
 	node: T,
 	options: CheckOptions = {},
 ): T {
-	const built = build(node, "localBusiness", LOCAL_BUSINESS, options);
-	checkPolicies(built, options);
-	return built;
+	return build(node, "localBusiness", LOCAL_BUSINESS, options, (data) =>
+		checkPolicies(data, options),
+	);
 }
 
 /** A person. Google has no rich result for a person alone: bounded only. */
@@ -216,9 +216,9 @@ export function webPage<T extends NodeOf<WebPage>>(
 	node: T,
 	options: CheckOptions = {},
 ): T {
-	const built = build(node, "webPage", WEB_PAGE, options);
-	checkNested(built, "speakable", () => SPEAKABLE, options);
-	return built;
+	return build(node, "webPage", WEB_PAGE, options, (data) =>
+		checkNested(data, "speakable", () => SPEAKABLE, options),
+	);
 }
 
 /** A page about one person or organization: a profile. */

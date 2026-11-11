@@ -2,10 +2,14 @@ import { describe, expect, it } from "vitest";
 import {
 	EphemerisError,
 	event,
+	jsonLdScriptTag,
 	organization,
 	person,
 	product,
+	SchemaGraph,
 	stringifyJsonLd,
+	toJsonLd,
+	website,
 } from "../../src/index.js";
 import type { OrganizationLeaf } from "../../src/schema.js";
 
@@ -173,6 +177,94 @@ describe("ephemeris > helpers > values written through toJSON", () => {
 		expect(organization(node, silent)).toBe(node);
 		expect(calls).toBe(1);
 		expect(stringifyJsonLd(node)).toContain('"url":{}');
+		expect(calls).toBe(1);
+	});
+});
+
+describe("ephemeris > helpers > what was checked is what is written", () => {
+	/** A toJSON that gives `first` once, then `next` on every later call. */
+	function flipping(first: string, next: string) {
+		let calls = 0;
+		return {
+			value: { toJSON: () => (calls++ === 0 ? first : next) },
+			calls: () => calls,
+		};
+	}
+
+	it("writes the URL the helper checked, not what a second toJSON gives", () => {
+		const url = flipping("https://ok.example/", "javascript:alert(1)");
+		const node = organizationWith("url", url.value);
+		expect(organization(node, silent)).toBe(node);
+		const tag = jsonLdScriptTag(node);
+		expect(tag).not.toContain("javascript:");
+		expect(tag).toContain('"url":"https://ok.example/"');
+		expect(toJsonLd(node)).toMatchObject({ url: "https://ok.example/" });
+		expect(url.calls()).toBe(1);
+	});
+
+	it("writes the bounded text, not a longer one a second toJSON gives", () => {
+		const name = flipping("ACME", "A".repeat(50_000));
+		const node = organizationWith("name", name.value);
+		organization(node, silent);
+		expect(stringifyJsonLd(node)).toContain('"name":"ACME"');
+		expect(name.calls()).toBe(1);
+	});
+
+	it("writes the checked node in the graph, and inside another helper's node", () => {
+		const url = flipping("https://ok.example/", "javascript:alert(1)");
+		const identity = organization(organizationWith("url", url.value), silent);
+		const graph = new SchemaGraph({ url: "https://ok.example/p" });
+		graph.identity(identity);
+		const site = website(
+			{
+				"@type": "WebSite",
+				name: "ACME",
+				url: "https://ok.example/",
+				publisher: identity,
+			},
+			silent,
+		);
+		graph.website(site);
+		const written = JSON.stringify(graph.toJsonLd());
+		expect(written).not.toContain("javascript:");
+		expect(stringifyJsonLd(site)).not.toContain("javascript:");
+		expect(url.calls()).toBe(1);
+	});
+
+	it("writes what was checked even when the node is changed afterwards", () => {
+		const node: OrganizationLeaf = {
+			"@type": "Organization",
+			name: "ACME",
+			url: "https://ok.example/",
+		};
+		organization(node, silent);
+		Reflect.set(node, "url", "javascript:alert(1)");
+		expect(stringifyJsonLd(node)).toContain('"url":"https://ok.example/"');
+		// Checked again, the change is refused.
+		expect(refusal(() => organization(node, silent)).code).toBe(
+			"E_EPHEMERIS_INVALID_URL",
+		);
+	});
+
+	it("refuses a node its own toJSON writes as something else than a node", () => {
+		const node = organizationWith("toJSON", () => "javascript:alert(1)");
+		expect(refusal(() => organization(node, silent))).toMatchObject({
+			code: "E_EPHEMERIS_INVALID_NODE",
+		});
+	});
+
+	it("checks the requirements on the written values", () => {
+		const node = {
+			"@type": "WebSite" as const,
+			name: "ACME",
+			url: "https://ok.example/",
+		};
+		// Empty when checked, a name only when written a second time.
+		Reflect.set(node, "name", flipping("", "ACME").value);
+		expect(refusal(() => website(node, silent))).toMatchObject({
+			code: "E_EPHEMERIS_MISSING_REQUIRED",
+			property: "name",
+		});
 	});
 });
 

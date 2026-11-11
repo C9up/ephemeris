@@ -5,7 +5,14 @@
  */
 
 import { CURRENCIES } from "./currencies.js";
-import { type Data, isPlainObject, MAX_DEPTH, UNSAFE_KEYS } from "./data.js";
+import {
+	checkedData,
+	type Data,
+	isPlainObject,
+	MAX_DEPTH,
+	rememberChecked,
+	UNSAFE_KEYS,
+} from "./data.js";
 import { EphemerisError } from "./errors.js";
 import {
 	type CheckOptions,
@@ -256,7 +263,9 @@ function written(value: object, path: string, fromToJSON: boolean): unknown {
 /**
  * Every value of `node` held to the forms above, at any depth — bounded like
  * any document: a cycle or 64 levels of nesting is refused, never a stack
- * overflow.
+ * overflow. Returns the values as they were checked: each `toJSON` and `Date`
+ * resolved once, a node a helper already returned as the values it checked,
+ * `undefined` and the `toJSON` hook left out, as the serializer leaves them.
  */
 function bound(
 	given: unknown,
@@ -265,13 +274,13 @@ function bound(
 	owner: Owner,
 	ancestors: Set<object> = new Set(),
 	depth = 0,
-): void {
+): unknown {
 	const value =
 		typeof given === "object" && given !== null
-			? written(given, path, false)
+			? written(depth > 0 ? (checkedData(given) ?? given) : given, path, false)
 			: given;
 	// Absent is absent: the serializer and the graph leave it out.
-	if (value === undefined || value === null) return;
+	if (value === undefined || value === null) return value;
 	if (PRICE_KEYS.has(key) && !Array.isArray(value)) checkPrice(value, path);
 	if (CURRENCY_KEYS.has(key) && !Array.isArray(value))
 		checkCurrency(value, path);
@@ -299,9 +308,9 @@ function bound(
 			checkId(value, path);
 		}
 		if (DATE_KEYS.has(key)) checkDate(value, path, key, owner);
-		return;
+		return value;
 	}
-	if (typeof value !== "object") return;
+	if (typeof value !== "object") return value;
 	if (ancestors.has(value)) {
 		throw new EphemerisError("E_EPHEMERIS_CYCLE", `${path} contains itself`);
 	}
@@ -312,11 +321,23 @@ function bound(
 		);
 	}
 	ancestors.add(value);
-	if (Array.isArray(value)) {
-		value.forEach((item, index) => {
-			bound(item, `${path}[${index}]`, key, owner, ancestors, depth + 1);
-		});
-	} else if (isPlainObject(value)) {
+	try {
+		if (Array.isArray(value)) {
+			const items: unknown[] = [];
+			value.forEach((item, index) => {
+				const resolved = bound(
+					item,
+					`${path}[${index}]`,
+					key,
+					owner,
+					ancestors,
+					depth + 1,
+				);
+				if (resolved !== undefined) items.push(resolved);
+			});
+			return items;
+		}
+		const entries: [string, unknown][] = [];
 		for (const [name, item] of Object.entries(value)) {
 			if (UNSAFE_KEYS.has(name)) {
 				throw new EphemerisError(
@@ -324,18 +345,38 @@ function bound(
 					`${path}.${name} is not a key structured data may use`,
 				);
 			}
-			bound(item, `${path}.${name}`, name, owner, ancestors, depth + 1);
+			// The serialization hook is not data: JSON leaves it out.
+			if (name === "toJSON" && typeof item === "function") continue;
+			const resolved = bound(
+				item,
+				`${path}.${name}`,
+				name,
+				owner,
+				ancestors,
+				depth + 1,
+			);
+			if (resolved !== undefined) entries.push([name, resolved]);
 		}
+		// fromEntries defines each key as data, as the serializer does.
+		return Object.fromEntries(entries);
+	} finally {
+		ancestors.delete(value);
 	}
-	ancestors.delete(value);
 }
 
-/** The node, held to the forms above and checked against `rule`. */
+/**
+ * The node, held to the forms above and checked against `rule`, then by
+ * `nested` for the nodes it holds. The checks read the values the serializer
+ * will write, and those are what it writes for this node from then on: a
+ * second `toJSON` call, or a change to the node, is not written unchecked —
+ * the node is checked again by calling the helper again.
+ */
 export function build<T extends object>(
 	node: T,
 	what: string,
 	rule: Rule | undefined,
 	options: CheckOptions,
+	nested?: (data: Data) => void,
 ): T {
 	if (!isPlainObject(node)) {
 		throw new EphemerisError(
@@ -343,12 +384,20 @@ export function build<T extends object>(
 			`${what} must be a plain object`,
 		);
 	}
-	bound(node, what, "", {
+	const data = bound(node, what, "", {
 		type: rule?.type ?? what,
 		source: rule?.source ?? GUIDELINES,
 		options,
 	});
-	if (rule) check(rule, node, options);
+	if (!isPlainObject(data)) {
+		throw new EphemerisError(
+			"E_EPHEMERIS_INVALID_NODE",
+			`${what} must be written as a plain object, not what its toJSON gives`,
+		);
+	}
+	if (rule) check(rule, data, options);
+	nested?.(data);
+	rememberChecked(node, data);
 	return node;
 }
 

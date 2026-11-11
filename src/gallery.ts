@@ -407,14 +407,13 @@ export function dataset<T extends NodeOf<Dataset>>(
 export function discussionForumPosting<
 	T extends NodeOf<DiscussionForumPosting>,
 >(node: T, options: CheckOptions = {}): T {
-	const built = build(
+	return build(
 		node,
 		"discussionForumPosting",
 		DISCUSSION_FORUM_POSTING,
 		options,
+		(data) => checkComments(data, options),
 	);
-	checkComments(built, options);
-	return built;
 }
 
 export function quiz<T extends NodeOf<Quiz>>(
@@ -469,14 +468,14 @@ export function qaPage<T extends NodeOf<QAPage>>(
 	node: T,
 	options: CheckOptions = {},
 ): T {
-	const built = build(node, "qaPage", QA_PAGE, options);
-	checkNested(built, "mainEntity", () => QUESTION, options);
-	const questions: unknown[] = [Reflect.get(built, "mainEntity")].flat();
-	for (const question of questions.filter(isPlainObject)) {
-		checkNested(question, "acceptedAnswer", () => ANSWER, options);
-		checkNested(question, "suggestedAnswer", () => ANSWER, options);
-	}
-	return built;
+	return build(node, "qaPage", QA_PAGE, options, (data) => {
+		checkNested(data, "mainEntity", () => QUESTION, options);
+		const questions: unknown[] = [data.mainEntity].flat();
+		for (const question of questions.filter(isPlainObject)) {
+			checkNested(question, "acceptedAnswer", () => ANSWER, options);
+			checkNested(question, "suggestedAnswer", () => ANSWER, options);
+		}
+	});
 }
 
 export function merchantReturnPolicy<T extends NodeOf<MerchantReturnPolicy>>(

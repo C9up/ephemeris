@@ -14,7 +14,7 @@
  * throws on a cycle or a `bigint`.
  */
 
-import { isPlainObject, MAX_DEPTH } from "./data.js";
+import { checkedData, isPlainObject, MAX_DEPTH } from "./data.js";
 import { EphemerisError } from "./errors.js";
 
 /** A JSON-LD value once normalized: what `JSON.parse` would give back. */
@@ -89,11 +89,13 @@ function normalize(
 }
 
 function normalizeObject(
-	value: object,
+	given: object,
 	path: (string | number)[],
 	ancestors: Set<object>,
 	fromToJSON = false,
 ): JsonLdValue | typeof OMIT {
+	// A node a helper returned is written as the values it checked.
+	const value = checkedData(given) ?? given;
 	if (value instanceof Date) {
 		if (Number.isNaN(value.getTime())) {
 			refuse("E_EPHEMERIS_INVALID_VALUE", path, "is an invalid Date");

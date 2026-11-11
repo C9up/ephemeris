@@ -388,9 +388,9 @@ export function article<T extends NodeOf<Article>>(
 	node: T,
 	options: CheckOptions = {},
 ): T {
-	const built = build(node, "article", ARTICLE, options);
-	checkNested(built, "speakable", () => SPEAKABLE, options);
-	return built;
+	return build(node, "article", ARTICLE, options, (data) =>
+		checkNested(data, "speakable", () => SPEAKABLE, options),
+	);
 }
 
 /**
@@ -401,15 +401,15 @@ export function product<T extends NodeOf<Product>>(
 	node: T,
 	options: CheckOptions = {},
 ): T {
-	const built = build(node, "product", PRODUCT, options);
-	checkNested(
-		built,
-		"offers",
-		(offer) => (hasType(offer, "AggregateOffer") ? AGGREGATE_OFFER : OFFER),
-		options,
-	);
-	ratings(built, options);
-	return built;
+	return build(node, "product", PRODUCT, options, (data) => {
+		checkNested(
+			data,
+			"offers",
+			(offer) => (hasType(offer, "AggregateOffer") ? AGGREGATE_OFFER : OFFER),
+			options,
+		);
+		ratings(data, options);
+	});
 }
 
 /** A product the page sells (merchant listing): one seller's offer, priced. */
@@ -417,14 +417,14 @@ export function merchantListing<T extends NodeOf<Product>>(
 	node: T,
 	options: CheckOptions = {},
 ): T {
-	const built = build(node, "merchantListing", MERCHANT_LISTING, options);
-	checkNested(built, "offers", () => MERCHANT_OFFER, options);
-	const offers: unknown[] = [Reflect.get(built, "offers")].flat();
-	for (const offer of offers.filter(isPlainObject)) {
-		checkPolicies(offer, options);
-	}
-	ratings(built, options);
-	return built;
+	return build(node, "merchantListing", MERCHANT_LISTING, options, (data) => {
+		checkNested(data, "offers", () => MERCHANT_OFFER, options);
+		const offers: unknown[] = [data.offers].flat();
+		for (const offer of offers.filter(isPlainObject)) {
+			checkPolicies(offer, options);
+		}
+		ratings(data, options);
+	});
 }
 
 /** A review of something it names. */
@@ -464,9 +464,9 @@ export function recipe<T extends NodeOf<Recipe>>(
 	node: T,
 	options: CheckOptions = {},
 ): T {
-	const built = build(node, "recipe", RECIPE, options);
-	ratings(built, options);
-	return built;
+	return build(node, "recipe", RECIPE, options, (data) =>
+		ratings(data, options),
+	);
 }
 
 /** A video. */
@@ -482,14 +482,13 @@ export function softwareApplication<T extends NodeOf<SoftwareApplication>>(
 	node: T,
 	options: CheckOptions = {},
 ): T {
-	const built = build(
+	return build(
 		node,
 		"softwareApplication",
 		SOFTWARE_APPLICATION,
 		options,
+		(data) => ratings(data, options),
 	);
-	ratings(built, options);
-	return built;
 }
 
 /** A course. */

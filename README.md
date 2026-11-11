@@ -73,7 +73,10 @@ text (`keywords`, `additionalType`…), text stays text but an executable URL
 are checked as they will be written: a `URL` instance, a `Date` or anything
 with `toJSON` is held to the forms of the string it gives, and an object JSON
 would write as `{}` (a `Map`, a class instance) is refused
-(`E_EPHEMERIS_INVALID_VALUE`). A `__proto__`, `constructor` or `prototype` key is
+(`E_EPHEMERIS_INVALID_VALUE`). What a helper checked is what is written for
+the node it returns, in `jsonLdScriptTag`, `toJsonLd` and the graph: each
+`toJSON` is called once, and a change made to the node afterwards is written
+only once the helper has checked it again. A `__proto__`, `constructor` or `prototype` key is
 refused (`E_EPHEMERIS_UNSAFE_KEY`), as in the graph.
 
 ### Content and commerce
