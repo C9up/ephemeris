@@ -1,6 +1,6 @@
 {
   "name": "@c9up/ephemeris",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Ephemeris — schema.org structured data for the Ream ecosystem: the whole vocabulary typed, an @graph of linked entities, JSON-LD that cannot break out of its script tag, and Google's rich-result requirements checked",
   "license": "MIT AND CC-BY-SA-3.0",
   "type": "module",
