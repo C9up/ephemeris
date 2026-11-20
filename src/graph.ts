@@ -21,9 +21,10 @@
  * sets wins.
  */
 
-import { checkId } from "./build.js";
-import { isPlainObject, UNSAFE_KEYS } from "./data.js";
+import { checkBounds, checkId } from "./build.js";
+import { checkedData, isPlainObject, UNSAFE_KEYS } from "./data.js";
 import { EphemerisError } from "./errors.js";
+import type { CheckOptions } from "./requirements.js";
 import type {
 	BreadcrumbList,
 	Organization,
@@ -34,7 +35,8 @@ import type {
 } from "./schema.js";
 import { type JsonLdValue, toJsonLd } from "./serialize.js";
 
-export interface SchemaGraphOptions {
+/** `onWarning` receives what the nodes' checks warn about, as a helper's does. */
+export interface SchemaGraphOptions extends CheckOptions {
 	/** The page's absolute URL: the base of its nodes' `@id`s. */
 	url: string;
 	/** The site's home, base of the identity's and website's `@id`s; the URL's origin by default. */
@@ -193,8 +195,10 @@ export class SchemaGraph {
 	 * to: a caller's own id landing on one names another node.
 	 */
 	readonly #generated = new Set<string>();
+	readonly #check: CheckOptions;
 
 	constructor(options: SchemaGraphOptions) {
+		this.#check = { onWarning: options.onWarning };
 		this.#page = absoluteHttp(options.url, "the page URL");
 		this.#site = absoluteHttp(
 			options.site ?? this.#page.origin,
@@ -348,6 +352,13 @@ export class SchemaGraph {
 	 * without its empty parts. Photon, inker and aurora write `toJsonLd()`
 	 * with a plain `JSON.stringify`, which would turn those into `null`, `{}`
 	 * or nothing at all.
+	 *
+	 * A node that did not come from a helper is then held to the helpers'
+	 * bounds (URLs, text length, prices, dates — not Google's per-type
+	 * rules): the graph is where an app puts data it took from users, and a
+	 * `javascript:` url or a 50,000-character name must not reach the page
+	 * because it skipped a helper. A helper's output was checked once and is
+	 * written as it was checked.
 	 */
 	#clean(node: Node): JsonLdNode {
 		if (!isPlainObject(node)) {
@@ -357,7 +368,11 @@ export class SchemaGraph {
 			);
 		}
 		const cleaned = clean(toJsonLd(node), "node");
-		return isJsonLdNode(cleaned) ? cleaned : {};
+		const data = isJsonLdNode(cleaned) ? cleaned : {};
+		if (checkedData(node) === undefined) {
+			checkBounds(data, "node", this.#check);
+		}
+		return data;
 	}
 
 	#merge(id: string, data: JsonLdNode): void {

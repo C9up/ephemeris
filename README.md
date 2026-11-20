@@ -141,7 +141,11 @@ default availability, no shortened headline — and empty values (`undefined`,
 same bytes on every render. `__proto__`, `constructor` and `prototype` are
 refused as keys (`E_EPHEMERIS_UNSAFE_KEY`), and the URLs must be absolute
 http(s) and an `@id` relative or an `http(s):`, `urn:`, `mailto:` or `tel:`
-IRI (`E_EPHEMERIS_INVALID_URL`). A second node with another `@id` in a
+IRI (`E_EPHEMERIS_INVALID_URL`). A node given without a helper is held to the
+helpers' bounds (not Google's per-type rules): URL-only properties absolute
+http(s), a URL-or-text property never an executable scheme, text at most
+10,000 characters (`E_EPHEMERIS_TOO_LONG`), prices, currencies and dates in a
+helper's form; `new SchemaGraph({ url, onWarning })` receives the warnings. A second node with another `@id` in a
 filled slot is refused (`E_EPHEMERIS_SLOT_TAKEN`), not merged into the first,
 and so is an `options.id` or `@id` equal to the rank the graph generated for
 another node (`E_EPHEMERIS_ID_TAKEN`); the same id given twice still layers.

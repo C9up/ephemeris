@@ -402,6 +402,20 @@ export function build<T extends object>(
 }
 
 /**
+ * The node held to the forms above — URLs, text length, prices, currencies,
+ * dates, depth, unsafe keys — without any type's Google rule: what a node
+ * given to the graph without a helper owes, so the graph never writes a value
+ * a helper would have refused.
+ */
+export function checkBounds(
+	node: object,
+	what: string,
+	options: CheckOptions,
+): void {
+	bound(node, what, "", { type: what, source: GUIDELINES, options });
+}
+
+/**
  * Checks each object under `key` — an offer, a nested review — against the
  * rule `ruleOf` picks for it; a reference is described elsewhere and skipped.
  */
