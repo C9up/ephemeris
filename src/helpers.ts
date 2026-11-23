@@ -8,13 +8,12 @@
 
 import { build, checkNested } from "./build.js";
 import { isPlainObject } from "./data.js";
-import { EphemerisError } from "./errors.js";
-import { checkPolicies, paywall, SPEAKABLE } from "./gallery.js";
 import {
-	type CheckOptions,
-	RequirementError,
-	type Rule,
-} from "./requirements.js";
+	E_EPHEMERIS_MISSING_REQUIRED,
+	E_EPHEMERIS_TOO_MANY,
+} from "./errors.js";
+import { checkPolicies, paywall, SPEAKABLE } from "./gallery.js";
+import type { CheckOptions, Rule } from "./requirements.js";
 import type {
 	BreadcrumbList,
 	LocalBusiness,
@@ -243,13 +242,10 @@ export function breadcrumb(
 ): NodeOf<BreadcrumbList> {
 	const { type, source } = BREADCRUMB;
 	if (crumbs.length > MAX_BREADCRUMB_ITEMS) {
-		throw new EphemerisError(
-			"E_EPHEMERIS_TOO_MANY",
-			`a breadcrumb of ${crumbs.length} items is more than ${MAX_BREADCRUMB_ITEMS}`,
-		);
+		throw new E_EPHEMERIS_TOO_MANY([crumbs.length, MAX_BREADCRUMB_ITEMS]);
 	}
 	if (crumbs.length < 2) {
-		throw new RequirementError(
+		throw new E_EPHEMERIS_MISSING_REQUIRED(
 			type,
 			"itemListElement",
 			source,
@@ -259,14 +255,14 @@ export function breadcrumb(
 	// A hole in the array (`[, crumb]`) is a missing crumb, not one to skip.
 	Array.from(crumbs).forEach((crumb: Crumb | undefined, index) => {
 		if (crumb === undefined || crumb.name.trim() === "") {
-			throw new RequirementError(
+			throw new E_EPHEMERIS_MISSING_REQUIRED(
 				type,
 				`itemListElement[${index}].name`,
 				source,
 			);
 		}
 		if (crumb.item === undefined && index < crumbs.length - 1) {
-			throw new RequirementError(
+			throw new E_EPHEMERIS_MISSING_REQUIRED(
 				type,
 				`itemListElement[${index}].item`,
 				source,

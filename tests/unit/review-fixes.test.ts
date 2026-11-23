@@ -1,7 +1,8 @@
+import { Exception } from "@c9up/flare";
 import { describe, expect, it } from "vitest";
 import {
 	breadcrumb,
-	EphemerisError,
+	errors,
 	event,
 	imageObject,
 	jobPosting,
@@ -10,7 +11,6 @@ import {
 	person,
 	product,
 	profilePage,
-	RequirementError,
 	recipe,
 	review,
 	SchemaGraph,
@@ -29,11 +29,11 @@ import type {
  * error, a wrong output or a check skipped.
  */
 
-function refusal(build: () => unknown): EphemerisError {
+function refusal(build: () => unknown): Exception {
 	try {
 		build();
 	} catch (error) {
-		if (error instanceof EphemerisError) return error;
+		if (error instanceof Exception) return error;
 		throw error;
 	}
 	throw new Error("expected a refusal");
@@ -154,7 +154,7 @@ describe("ephemeris > review fixes > checks no longer skipped", () => {
 					silent,
 				),
 			);
-			expect(error).toBeInstanceOf(RequirementError);
+			expect(error).toBeInstanceOf(errors.E_EPHEMERIS_MISSING_REQUIRED);
 			expect(error).toMatchObject({
 				code: "E_EPHEMERIS_MISSING_REQUIRED",
 				property: "name",
@@ -273,7 +273,7 @@ describe("ephemeris > review fixes > @ids", () => {
 		]);
 	});
 
-	it("refuses an @id that is no URL, as an EphemerisError", () => {
+	it("refuses an @id that is no URL, as an E_EPHEMERIS_INVALID_URL", () => {
 		expect(
 			refusal(() =>
 				new SchemaGraph({ url: URL_ }).add({

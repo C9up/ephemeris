@@ -1,6 +1,6 @@
+import { Exception } from "@c9up/flare";
 import { describe, expect, it } from "vitest";
 import {
-	EphemerisError,
 	event,
 	jsonLdScriptTag,
 	organization,
@@ -19,11 +19,11 @@ import type { OrganizationLeaf } from "../../src/schema.js";
  * is written as what its `toJSON` gives, so that is what is checked.
  */
 
-function refusal(build: () => unknown): EphemerisError {
+function refusal(build: () => unknown): Exception {
 	try {
 		build();
 	} catch (error) {
-		if (error instanceof EphemerisError) return error;
+		if (error instanceof Exception) return error;
 		throw error;
 	}
 	throw new Error("expected a refusal");

@@ -15,7 +15,11 @@
  */
 
 import { checkedData, isPlainObject, MAX_DEPTH } from "./data.js";
-import { EphemerisError } from "./errors.js";
+import {
+	E_EPHEMERIS_CYCLE,
+	E_EPHEMERIS_INVALID_VALUE,
+	E_EPHEMERIS_TOO_DEEP,
+} from "./errors.js";
 
 /** A JSON-LD value once normalized: what `JSON.parse` would give back. */
 export type JsonLdValue =
@@ -51,12 +55,9 @@ function pathOf(path: readonly (string | number)[]): string {
 				.join("");
 }
 
-function refuse(
-	code: `E_EPHEMERIS_${string}`,
-	path: readonly (string | number)[],
-	reason: string,
-): never {
-	throw new EphemerisError(code, `${pathOf(path)} ${reason}`);
+/** Refuse a value JSON cannot hold, named by where it sits. */
+function refuse(path: readonly (string | number)[], reason: string): never {
+	throw new E_EPHEMERIS_INVALID_VALUE([pathOf(path), reason]);
 }
 
 function normalize(
@@ -70,22 +71,14 @@ function normalize(
 	if (typeof value === "string" || typeof value === "boolean") return value;
 	if (typeof value === "number") {
 		if (!Number.isFinite(value)) {
-			refuse(
-				"E_EPHEMERIS_INVALID_VALUE",
-				path,
-				`is ${value}, not a number JSON can hold`,
-			);
+			refuse(path, `is ${value}, not a number JSON can hold`);
 		}
 		return value;
 	}
 	if (typeof value === "object") {
 		return normalizeObject(value, path, ancestors, fromToJSON);
 	}
-	return refuse(
-		"E_EPHEMERIS_INVALID_VALUE",
-		path,
-		`is a ${typeof value}, which JSON cannot hold`,
-	);
+	return refuse(path, `is a ${typeof value}, which JSON cannot hold`);
 }
 
 function normalizeObject(
@@ -98,7 +91,7 @@ function normalizeObject(
 	const value = checkedData(given) ?? given;
 	if (value instanceof Date) {
 		if (Number.isNaN(value.getTime())) {
-			refuse("E_EPHEMERIS_INVALID_VALUE", path, "is an invalid Date");
+			refuse(path, "is an invalid Date");
 		}
 		return value.toISOString();
 	}
@@ -109,14 +102,10 @@ function normalizeObject(
 		return normalize(Reflect.apply(toJSON, value, []), path, ancestors, true);
 	}
 	if (ancestors.has(value)) {
-		refuse("E_EPHEMERIS_CYCLE", path, "contains itself");
+		throw new E_EPHEMERIS_CYCLE([pathOf(path)]);
 	}
 	if (path.length >= MAX_DEPTH) {
-		refuse(
-			"E_EPHEMERIS_TOO_DEEP",
-			path,
-			`is nested deeper than ${MAX_DEPTH} levels`,
-		);
+		throw new E_EPHEMERIS_TOO_DEEP([pathOf(path), MAX_DEPTH]);
 	}
 	ancestors.add(value);
 	try {
@@ -130,11 +119,7 @@ function normalizeObject(
 		}
 		if (!isPlainObject(value)) {
 			const name = value.constructor?.name ?? "object";
-			refuse(
-				"E_EPHEMERIS_INVALID_VALUE",
-				path,
-				`is a ${name}, which JSON would write as {}`,
-			);
+			refuse(path, `is a ${name}, which JSON would write as {}`);
 		}
 		const entries: [string, JsonLdValue][] = [];
 		for (const [key, item] of Object.entries(value)) {
@@ -152,16 +137,12 @@ function normalizeObject(
 
 /**
  * The JSON-LD as plain data: `undefined` left out, dates as ISO strings,
- * anything JSON cannot hold refused with an `EphemerisError`.
+ * anything JSON cannot hold refused with `errors.E_EPHEMERIS_INVALID_VALUE`.
  */
 export function toJsonLd(data: object): JsonLdValue {
 	const normalized = normalizeObject(data, [], new Set());
 	if (normalized === OMIT) {
-		refuse(
-			"E_EPHEMERIS_INVALID_VALUE",
-			[],
-			"is empty: its toJSON gave nothing",
-		);
+		refuse([], "is empty: its toJSON gave nothing");
 	}
 	return normalized;
 }

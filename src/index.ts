@@ -28,7 +28,7 @@ export {
 	VIDEO,
 	video,
 } from "./content.js";
-export { EphemerisError } from "./errors.js";
+export * as errors from "./errors.js";
 export {
 	ANSWER,
 	COMMENT,
@@ -82,13 +82,12 @@ export {
 	webPage,
 	website,
 } from "./helpers.js";
-export {
-	type CheckOptions,
-	type Requirement,
-	RequirementError,
-	type RequirementWarning,
-	type Rule,
-	type WarningHandler,
+export type {
+	CheckOptions,
+	Requirement,
+	RequirementWarning,
+	Rule,
+	WarningHandler,
 } from "./requirements.js";
 /** The whole schema.org vocabulary, typed: `Schema.Product`, `Schema.WithContext<…>`. */
 export type * as Schema from "./schema.js";

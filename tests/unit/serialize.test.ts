@@ -1,16 +1,12 @@
+import { Exception } from "@c9up/flare";
 import { describe, expect, it } from "vitest";
-import {
-	EphemerisError,
-	jsonLdScriptTag,
-	stringifyJsonLd,
-	toJsonLd,
-} from "../../src/index.js";
+import { jsonLdScriptTag, stringifyJsonLd, toJsonLd } from "../../src/index.js";
 
-function refusal(build: () => unknown): EphemerisError {
+function refusal(build: () => unknown): Exception {
 	try {
 		build();
 	} catch (error) {
-		if (error instanceof EphemerisError) return error;
+		if (error instanceof Exception) return error;
 		throw error;
 	}
 	throw new Error("expected a refusal");

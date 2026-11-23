@@ -3,14 +3,9 @@
  * bounds as a helper's output — URL-only properties absolute http(s),
  * URL-or-text properties never an executable scheme, text bounded.
  */
-
+import { Exception } from "@c9up/flare";
 import { describe, expect, it } from "vitest";
-import {
-	EphemerisError,
-	MAX_TEXT_LENGTH,
-	product,
-	SchemaGraph,
-} from "../../src/index.js";
+import { MAX_TEXT_LENGTH, product, SchemaGraph } from "../../src/index.js";
 
 const PAGE = "https://shop.example/anvil";
 
@@ -18,7 +13,8 @@ function code(build: () => unknown): string {
 	try {
 		build();
 	} catch (error) {
-		if (error instanceof EphemerisError) return error.code;
+		if (error instanceof Exception && error.code !== undefined)
+			return error.code;
 		throw error;
 	}
 	throw new Error("expected a refusal");

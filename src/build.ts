@@ -13,7 +13,18 @@ import {
 	rememberChecked,
 	UNSAFE_KEYS,
 } from "./data.js";
-import { EphemerisError } from "./errors.js";
+import {
+	E_EPHEMERIS_CYCLE,
+	E_EPHEMERIS_INVALID_CURRENCY,
+	E_EPHEMERIS_INVALID_DATE,
+	E_EPHEMERIS_INVALID_NODE,
+	E_EPHEMERIS_INVALID_PRICE,
+	E_EPHEMERIS_INVALID_URL,
+	E_EPHEMERIS_INVALID_VALUE,
+	E_EPHEMERIS_TOO_DEEP,
+	E_EPHEMERIS_TOO_LONG,
+	E_EPHEMERIS_UNSAFE_KEY,
+} from "./errors.js";
 import {
 	type CheckOptions,
 	check,
@@ -98,16 +109,16 @@ function checkUrl(value: string, path: string): void {
 	try {
 		url = new URL(value);
 	} catch {
-		throw new EphemerisError(
-			"E_EPHEMERIS_INVALID_URL",
-			`${path} must be an absolute URL, not "${value.slice(0, 200)}"`,
-		);
+		throw new E_EPHEMERIS_INVALID_URL([
+			path,
+			`must be an absolute URL, not "${value.slice(0, 200)}"`,
+		]);
 	}
 	if (url.protocol !== "https:" && url.protocol !== "http:") {
-		throw new EphemerisError(
-			"E_EPHEMERIS_INVALID_URL",
-			`${path} must be an http(s) URL, not a ${url.protocol} one`,
-		);
+		throw new E_EPHEMERIS_INVALID_URL([
+			path,
+			`must be an http(s) URL, not a ${url.protocol} one`,
+		]);
 	}
 }
 
@@ -124,10 +135,10 @@ function absolute(value: string): URL | undefined {
 function checkNotExecutable(value: string, path: string): void {
 	const url = absolute(value);
 	if (url !== undefined && EXECUTABLE_SCHEMES.has(url.protocol)) {
-		throw new EphemerisError(
-			"E_EPHEMERIS_INVALID_URL",
-			`${path} must not be a ${url.protocol} URL`,
-		);
+		throw new E_EPHEMERIS_INVALID_URL([
+			path,
+			`must not be a ${url.protocol} URL`,
+		]);
 	}
 }
 
@@ -135,10 +146,10 @@ function checkNotExecutable(value: string, path: string): void {
 export function checkId(value: string, path: string): void {
 	const url = absolute(value);
 	if (url !== undefined && !ID_SCHEMES.has(url.protocol)) {
-		throw new EphemerisError(
-			"E_EPHEMERIS_INVALID_URL",
-			`${path} must be a relative, http(s), urn:, mailto: or tel: IRI, not a ${url.protocol} one`,
-		);
+		throw new E_EPHEMERIS_INVALID_URL([
+			path,
+			`must be a relative, http(s), urn:, mailto: or tel: IRI, not a ${url.protocol} one`,
+		]);
 	}
 }
 
@@ -150,19 +161,13 @@ function checkPrice(value: unknown, path: string): void {
 			? Number.isFinite(value) && DECIMAL.test(String(value))
 			: typeof value === "string" && DECIMAL.test(value);
 	if (!valid) {
-		throw new EphemerisError(
-			"E_EPHEMERIS_INVALID_PRICE",
-			`${path} must be a number, or digits with a "." for decimals — no currency sign, no thousands separator — not ${JSON.stringify(value)}`,
-		);
+		throw new E_EPHEMERIS_INVALID_PRICE([path, value]);
 	}
 }
 
 function checkCurrency(value: unknown, path: string): void {
 	if (typeof value !== "string" || !CURRENCIES.has(value)) {
-		throw new EphemerisError(
-			"E_EPHEMERIS_INVALID_CURRENCY",
-			`${path} must be an ISO 4217 currency code such as "CHF", not ${JSON.stringify(value)}`,
-		);
+		throw new E_EPHEMERIS_INVALID_CURRENCY([path, value]);
 	}
 }
 
@@ -209,10 +214,7 @@ function checkDate(
 		offsetHours > 14 ||
 		offsetMinutes > 59
 	) {
-		throw new EphemerisError(
-			"E_EPHEMERIS_INVALID_DATE",
-			`${path} must be an ISO 8601 date or date-time, not "${value.slice(0, 100)}"`,
-		);
+		throw new E_EPHEMERIS_INVALID_DATE([path, `"${value.slice(0, 100)}"`]);
 	}
 	if (dateTime && dateTime[7] === undefined) {
 		emitWarning(owner.options, {
@@ -239,10 +241,7 @@ function checkDate(
 function written(value: object, path: string, fromToJSON: boolean): unknown {
 	if (value instanceof Date) {
 		if (Number.isNaN(value.getTime())) {
-			throw new EphemerisError(
-				"E_EPHEMERIS_INVALID_VALUE",
-				`${path} is an invalid Date`,
-			);
+			throw new E_EPHEMERIS_INVALID_VALUE([path, "is an invalid Date"]);
 		}
 		return value.toISOString();
 	}
@@ -254,10 +253,10 @@ function written(value: object, path: string, fromToJSON: boolean): unknown {
 			: result;
 	}
 	if (Array.isArray(value) || isPlainObject(value)) return value;
-	throw new EphemerisError(
-		"E_EPHEMERIS_INVALID_VALUE",
-		`${path} is a ${value.constructor?.name ?? "object"}, which JSON would write as {}`,
-	);
+	throw new E_EPHEMERIS_INVALID_VALUE([
+		path,
+		`is a ${value.constructor?.name ?? "object"}, which JSON would write as {}`,
+	]);
 }
 
 /**
@@ -288,17 +287,14 @@ function bound(
 		DATE_KEYS.has(key) &&
 		(typeof value === "number" || typeof value === "boolean")
 	) {
-		throw new EphemerisError(
-			"E_EPHEMERIS_INVALID_DATE",
-			`${path} must be an ISO 8601 date or date-time, not the ${typeof value} ${String(value)}`,
-		);
+		throw new E_EPHEMERIS_INVALID_DATE([
+			path,
+			`the ${typeof value} ${String(value)}`,
+		]);
 	}
 	if (typeof value === "string") {
 		if (value.length > MAX_TEXT_LENGTH) {
-			throw new EphemerisError(
-				"E_EPHEMERIS_TOO_LONG",
-				`${path} is ${value.length} characters, more than ${MAX_TEXT_LENGTH}`,
-			);
+			throw new E_EPHEMERIS_TOO_LONG([path, value.length, MAX_TEXT_LENGTH]);
 		}
 		if (URL_PROPERTIES.has(key) || GOOGLE_URL_KEYS.has(key)) {
 			checkUrl(value, path);
@@ -312,13 +308,10 @@ function bound(
 	}
 	if (typeof value !== "object") return value;
 	if (ancestors.has(value)) {
-		throw new EphemerisError("E_EPHEMERIS_CYCLE", `${path} contains itself`);
+		throw new E_EPHEMERIS_CYCLE([path]);
 	}
 	if (depth >= MAX_DEPTH) {
-		throw new EphemerisError(
-			"E_EPHEMERIS_TOO_DEEP",
-			`${path} is nested deeper than ${MAX_DEPTH} levels`,
-		);
+		throw new E_EPHEMERIS_TOO_DEEP([path, MAX_DEPTH]);
 	}
 	ancestors.add(value);
 	try {
@@ -340,10 +333,7 @@ function bound(
 		const entries: [string, unknown][] = [];
 		for (const [name, item] of Object.entries(value)) {
 			if (UNSAFE_KEYS.has(name)) {
-				throw new EphemerisError(
-					"E_EPHEMERIS_UNSAFE_KEY",
-					`${path}.${name} is not a key structured data may use`,
-				);
+				throw new E_EPHEMERIS_UNSAFE_KEY([`${path}.${name}`]);
 			}
 			// The serialization hook is not data: JSON leaves it out.
 			if (name === "toJSON" && typeof item === "function") continue;
@@ -379,10 +369,7 @@ export function build<T extends object>(
 	nested?: (data: Data) => void,
 ): T {
 	if (!isPlainObject(node)) {
-		throw new EphemerisError(
-			"E_EPHEMERIS_INVALID_NODE",
-			`${what} must be a plain object`,
-		);
+		throw new E_EPHEMERIS_INVALID_NODE([what, "must be a plain object"]);
 	}
 	const data = bound(node, what, "", {
 		type: rule?.type ?? what,
@@ -390,10 +377,10 @@ export function build<T extends object>(
 		options,
 	});
 	if (!isPlainObject(data)) {
-		throw new EphemerisError(
-			"E_EPHEMERIS_INVALID_NODE",
-			`${what} must be written as a plain object, not what its toJSON gives`,
-		);
+		throw new E_EPHEMERIS_INVALID_NODE([
+			what,
+			"must be written as a plain object, not what its toJSON gives",
+		]);
 	}
 	if (rule) check(rule, data, options);
 	nested?.(data);

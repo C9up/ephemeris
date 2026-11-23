@@ -48,8 +48,8 @@ graph
 Each helper checks what Google Search needs of the node for a rich result,
 read from Search Central — the page and its date are on each rule
 (`ORGANIZATION`, `LOCAL_BUSINESS`, `WEBSITE`, `PROFILE_PAGE`, `BREADCRUMB`). A
-missing required property throws a `RequirementError`
-(`E_EPHEMERIS_MISSING_REQUIRED`, with `type`, `property` and `source`); a
+missing required property throws `errors.E_EPHEMERIS_MISSING_REQUIRED`
+(with `type`, `property` and `source`); a
 missing recommended one is a warning, handed to `onWarning` or written once
 with `console.warn` — `{ onWarning: () => {} }` silences it. A property is
 there when it holds a value the graph writes: `{}`, `[{}]`, `null` or `""` is
@@ -167,7 +167,7 @@ The text has no `<`, `>` or `&`: they are written `\u003c`, `\u003e` and
 the tests. The nonce is the request's, passed in; the package never makes one
 up. `undefined` is left out and a `Date` becomes an ISO string; a function, a
 symbol, a `bigint`, `NaN`, a `Map`, a cycle or data nested 64 levels deep is
-refused with an `EphemerisError` (`E_EPHEMERIS_INVALID_VALUE`,
+refused with an error of the `errors` export (`E_EPHEMERIS_INVALID_VALUE`,
 `E_EPHEMERIS_CYCLE`, `E_EPHEMERIS_TOO_DEEP`) naming where it is.
 
 ## License

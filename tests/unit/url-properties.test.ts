@@ -1,17 +1,13 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { Exception } from "@c9up/flare";
 import { describe, expect, it } from "vitest";
 import {
 	generateScalarProperties,
 	generateUrlProperties,
 	VOCABULARY_FILE,
 } from "../../scripts/schema-generator.js";
-import {
-	EphemerisError,
-	organization,
-	SchemaGraph,
-	stringifyJsonLd,
-} from "../../src/index.js";
+import { organization, SchemaGraph, stringifyJsonLd } from "../../src/index.js";
 import {
 	BOOLEAN_PROPERTIES,
 	NUMBER_PROPERTIES,
@@ -32,11 +28,11 @@ const vocabulary: unknown = JSON.parse(
 	readFileSync(`${root}${VOCABULARY_FILE}`, "utf8"),
 );
 
-function refusal(build: () => unknown): EphemerisError {
+function refusal(build: () => unknown): Exception {
 	try {
 		build();
 	} catch (error) {
-		if (error instanceof EphemerisError) return error;
+		if (error instanceof Exception) return error;
 		throw error;
 	}
 	throw new Error("expected a refusal");

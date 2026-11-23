@@ -1,19 +1,16 @@
+import { Exception } from "@c9up/flare";
 import { describe, expect, it } from "vitest";
-import {
-	EphemerisError,
-	SchemaGraph,
-	stringifyJsonLd,
-} from "../../src/index.js";
+import { SchemaGraph, stringifyJsonLd } from "../../src/index.js";
 import type { Product } from "../../src/schema.js";
 
 const URL_ = "https://shop.example/anvils/executive?ref=home#reviews";
 const PAGE = "https://shop.example/anvils/executive?ref=home";
 
-function refusal(build: () => unknown): EphemerisError {
+function refusal(build: () => unknown): Exception {
 	try {
 		build();
 	} catch (error) {
-		if (error instanceof EphemerisError) return error;
+		if (error instanceof Exception) return error;
 		throw error;
 	}
 	throw new Error("expected a refusal");

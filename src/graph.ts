@@ -23,7 +23,13 @@
 
 import { checkBounds, checkId } from "./build.js";
 import { checkedData, isPlainObject, UNSAFE_KEYS } from "./data.js";
-import { EphemerisError } from "./errors.js";
+import {
+	E_EPHEMERIS_ID_TAKEN,
+	E_EPHEMERIS_INVALID_NODE,
+	E_EPHEMERIS_INVALID_URL,
+	E_EPHEMERIS_SLOT_TAKEN,
+	E_EPHEMERIS_UNSAFE_KEY,
+} from "./errors.js";
 import type { CheckOptions } from "./requirements.js";
 import type {
 	BreadcrumbList,
@@ -78,16 +84,16 @@ function absoluteHttp(value: string, what: string): URL {
 	try {
 		url = new URL(value);
 	} catch {
-		throw new EphemerisError(
-			"E_EPHEMERIS_INVALID_URL",
-			`${what} must be an absolute URL, not "${value}"`,
-		);
+		throw new E_EPHEMERIS_INVALID_URL([
+			what,
+			`must be an absolute URL, not "${value}"`,
+		]);
 	}
 	if (url.protocol !== "https:" && url.protocol !== "http:") {
-		throw new EphemerisError(
-			"E_EPHEMERIS_INVALID_URL",
-			`${what} must be an http(s) URL, not "${value}"`,
-		);
+		throw new E_EPHEMERIS_INVALID_URL([
+			what,
+			`must be an http(s) URL, not "${value}"`,
+		]);
 	}
 	url.hash = "";
 	return url;
@@ -110,10 +116,7 @@ function clean(value: JsonLdValue, path: string): JsonLdValue | undefined {
 	const entries: [string, JsonLdValue][] = [];
 	for (const [key, item] of Object.entries(value)) {
 		if (UNSAFE_KEYS.has(key)) {
-			throw new EphemerisError(
-				"E_EPHEMERIS_UNSAFE_KEY",
-				`${path}.${key} is not a key structured data may use`,
-			);
+			throw new E_EPHEMERIS_UNSAFE_KEY([`${path}.${key}`]);
 		}
 		const cleaned = clean(item, `${path}.${key}`);
 		if (cleaned !== undefined) entries.push([key, cleaned]);
@@ -127,10 +130,7 @@ function typesOf(node: JsonLdNode): [string, ...string[]] {
 		(entry): entry is string => typeof entry === "string" && entry !== "",
 	);
 	if (first === undefined) {
-		throw new EphemerisError(
-			"E_EPHEMERIS_INVALID_NODE",
-			'a node needs an "@type"',
-		);
+		throw new E_EPHEMERIS_INVALID_NODE(["a node", 'needs an "@type"']);
 	}
 	return [first, ...rest];
 }
@@ -160,10 +160,10 @@ function resolveId(given: string, base: URL): string {
 	try {
 		resolved = new URL(given, base).href;
 	} catch {
-		throw new EphemerisError(
-			"E_EPHEMERIS_INVALID_URL",
-			`"${given.slice(0, 200)}" is not an @id: not a URL, even relative to ${base.href}`,
-		);
+		throw new E_EPHEMERIS_INVALID_URL([
+			`"${given.slice(0, 200)}"`,
+			`is not an @id: not a URL, even relative to ${base.href}`,
+		]);
 	}
 	checkId(resolved, `the @id "${given.slice(0, 200)}"`);
 	return resolved;
@@ -269,10 +269,7 @@ export class SchemaGraph {
 	 */
 	#own(id: string): string {
 		if (this.#generated.has(id)) {
-			throw new EphemerisError(
-				"E_EPHEMERIS_ID_TAKEN",
-				`${id} was generated for another node; give this one an id of its own`,
-			);
+			throw new E_EPHEMERIS_ID_TAKEN([id]);
 		}
 		return id;
 	}
@@ -335,10 +332,7 @@ export class SchemaGraph {
 			typeof given === "string" ? this.#own(resolveId(given, base)) : undefined;
 		const taken = this.#slots.get(name);
 		if (taken !== undefined && wanted !== undefined && wanted !== taken) {
-			throw new EphemerisError(
-				"E_EPHEMERIS_SLOT_TAKEN",
-				`${name} is already ${taken}; a node with @id ${wanted} is another one, not a layer of it`,
-			);
+			throw new E_EPHEMERIS_SLOT_TAKEN([name, taken, wanted]);
 		}
 		const id = taken ?? wanted ?? `${base.href}${fragment}`;
 		this.#slots.set(name, id);
@@ -362,10 +356,7 @@ export class SchemaGraph {
 	 */
 	#clean(node: Node): JsonLdNode {
 		if (!isPlainObject(node)) {
-			throw new EphemerisError(
-				"E_EPHEMERIS_INVALID_NODE",
-				"a node must be a plain object",
-			);
+			throw new E_EPHEMERIS_INVALID_NODE(["a node", "must be a plain object"]);
 		}
 		const cleaned = clean(toJsonLd(node), "node");
 		const data = isJsonLdNode(cleaned) ? cleaned : {};

@@ -1,5 +1,6 @@
+import { Exception } from "@c9up/flare";
 import { describe, expect, it } from "vitest";
-import { EphemerisError, SchemaGraph } from "../../src/index.js";
+import { SchemaGraph } from "../../src/index.js";
 
 /**
  * An `@id` the graph handed out is that node's. A caller's own id — an
@@ -10,11 +11,11 @@ import { EphemerisError, SchemaGraph } from "../../src/index.js";
 
 const PAGE = "https://a.example/p";
 
-function refusal(build: () => unknown): EphemerisError {
+function refusal(build: () => unknown): Exception {
 	try {
 		build();
 	} catch (error) {
-		if (error instanceof EphemerisError) return error;
+		if (error instanceof Exception) return error;
 		throw error;
 	}
 	throw new Error("expected a refusal");

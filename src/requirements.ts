@@ -8,7 +8,7 @@
  */
 
 import { type Data, isPlainObject } from "./data.js";
-import { EphemerisError } from "./errors.js";
+import { E_EPHEMERIS_MISSING_REQUIRED } from "./errors.js";
 import { BOOLEAN_PROPERTIES, NUMBER_PROPERTIES } from "./scalar-properties.js";
 
 /** A warning: not an error, the node is still valid structured data. */
@@ -35,23 +35,6 @@ export interface CheckOptions {
 	 * process with `console.warn`; `() => {}` silences them.
 	 */
 	onWarning?: WarningHandler;
-}
-
-/** A required property is missing: Google would not show the rich result. */
-export class RequirementError extends EphemerisError {
-	readonly type: string;
-	readonly property: string;
-	readonly source: string;
-
-	constructor(type: string, property: string, source: string, detail = "") {
-		super(
-			"E_EPHEMERIS_MISSING_REQUIRED",
-			`${type} needs ${property}${detail} — ${source}`,
-		);
-		this.type = type;
-		this.property = property;
-		this.source = source;
-	}
 }
 
 /** `"name"`, a dotted `"address.postalCode"`, or alternatives. */
@@ -214,7 +197,12 @@ export function check(
 			});
 		},
 		fail(property, detail = "") {
-			throw new RequirementError(rule.type, property, rule.source, detail);
+			throw new E_EPHEMERIS_MISSING_REQUIRED(
+				rule.type,
+				property,
+				rule.source,
+				detail,
+			);
 		},
 	};
 	for (const required of rule.required ?? []) {

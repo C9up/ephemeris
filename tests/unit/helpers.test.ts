@@ -1,24 +1,24 @@
+import { Exception } from "@c9up/flare";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
 	breadcrumb,
-	EphemerisError,
+	errors,
 	localBusiness,
 	MAX_TEXT_LENGTH,
 	organization,
 	person,
 	profilePage,
-	RequirementError,
 	type RequirementWarning,
 	SchemaGraph,
 	webPage,
 	website,
 } from "../../src/index.js";
 
-function refusal(build: () => unknown): EphemerisError {
+function refusal(build: () => unknown): Exception {
 	try {
 		build();
 	} catch (error) {
-		if (error instanceof EphemerisError) return error;
+		if (error instanceof Exception) return error;
 		throw error;
 	}
 	throw new Error("expected a refusal");
@@ -123,7 +123,7 @@ describe("ephemeris > localBusiness", () => {
 		] as const;
 		for (const [property, build] of cases) {
 			const error = refusal(build);
-			expect(error).toBeInstanceOf(RequirementError);
+			expect(error).toBeInstanceOf(errors.E_EPHEMERIS_MISSING_REQUIRED);
 			expect(error.code).toBe("E_EPHEMERIS_MISSING_REQUIRED");
 			expect(error).toMatchObject({
 				type: "LocalBusiness",

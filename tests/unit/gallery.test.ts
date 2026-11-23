@@ -1,9 +1,9 @@
+import { Exception } from "@c9up/flare";
 import { describe, expect, it } from "vitest";
 import {
 	article,
 	dataset,
 	discussionForumPosting,
-	EphemerisError,
 	employerAggregateRating,
 	imageObject,
 	itemList,
@@ -20,11 +20,11 @@ import {
 	webPage,
 } from "../../src/index.js";
 
-function refusal(build: () => unknown): EphemerisError {
+function refusal(build: () => unknown): Exception {
 	try {
 		build();
 	} catch (error) {
-		if (error instanceof EphemerisError) return error;
+		if (error instanceof Exception) return error;
 		throw error;
 	}
 	throw new Error("expected a refusal");

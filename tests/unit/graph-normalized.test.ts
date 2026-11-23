@@ -1,5 +1,6 @@
+import { Exception } from "@c9up/flare";
 import { describe, expect, it } from "vitest";
-import { EphemerisError, SchemaGraph } from "../../src/index.js";
+import { SchemaGraph } from "../../src/index.js";
 import type { ProductLeaf } from "../../src/schema.js";
 
 /**
@@ -11,11 +12,11 @@ import type { ProductLeaf } from "../../src/schema.js";
 
 const PAGE = "https://shop.example/anvil";
 
-function refusal(build: () => unknown): EphemerisError {
+function refusal(build: () => unknown): Exception {
 	try {
 		build();
 	} catch (error) {
-		if (error instanceof EphemerisError) return error;
+		if (error instanceof Exception) return error;
 		throw error;
 	}
 	throw new Error("expected a refusal");
